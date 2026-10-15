@@ -1,35 +1,7 @@
-
 import mongoose from "mongoose";
 import Category from "../models/category.model.js";
-
-// Reusable helpers
-
-const isValidObjectId = (id) =>
-  typeof id === "string" &&
-  mongoose.isObjectIdOrHexString(id);
-
-const handleError = (res, error, message) => {
-  console.error(message, error);
-
-  if (error.code === 11000) {
-    return res.status(409).json({
-      success: false,
-      message: "Category name or slug already exists",
-    });
-  }
-
-  if (error.name === "ValidationError" || error.name === "CastError") {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid category data",
-    });
-  }
-
-  return res.status(500).json({
-    success: false,
-    message,
-  });
-};
+import isValidObjectId from "../utils/validateObjectId.js";
+import handleError from "../utils/handleError.js";
 
 // CREATE CATEGORY
 export const createCategory = async (req, res) => {
