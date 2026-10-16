@@ -20,12 +20,26 @@ const productSchema = new mongoose.Schema(
       type: Number,
       required: [true, "Product price is required"],
       min: 0,
+      validate: {
+        validator: (value) => Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) < 1e-8,
+        message: "Price must have no more than two decimal places",
+      },
     },
 
     compareAtPrice: {
       type: Number,
       min: 0,
       default: null,
+      validate: [
+        {
+          validator: (value) => value == null || (Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) < 1e-8),
+          message: "Compare-at price must have no more than two decimal places",
+        },
+        {
+          validator: function (value) { return value == null || value >= this.price; },
+          message: "Compare-at price must be greater than or equal to price",
+        },
+      ],
     },
 
     images: {
@@ -75,6 +89,10 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "Ratings count must be an integer",
+      },
     },
 
     isActive: {
