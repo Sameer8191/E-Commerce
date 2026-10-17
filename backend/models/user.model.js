@@ -49,7 +49,7 @@ const addressSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { _id: true }
+  { _id: true },
 );
 
 const userSchema = new mongoose.Schema(
@@ -68,7 +68,10 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please provide a valid email address"],
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please provide a valid email address",
+      ],
     },
 
     password: {
@@ -103,16 +106,27 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationOTP: String,
+    verificationOTPExpires: Date,
+    resetPasswordOTP: String,
+    resetPasswordOTPExpires: Date,
   },
+
   {
     timestamps: true,
-  }
+  },
 );
 
-userSchema.path("addresses").validate(
-  (addresses) => addresses.filter((address) => address.isDefault).length <= 1,
-  "Only one address can be marked as default"
-);
+userSchema
+  .path("addresses")
+  .validate(
+    (addresses) => addresses.filter((address) => address.isDefault).length <= 1,
+    "Only one address can be marked as default",
+  );
 
 const User = mongoose.model("User", userSchema);
 

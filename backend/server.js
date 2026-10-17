@@ -4,12 +4,16 @@ import "dotenv/config";
 import authRoutes from "./routes/auth.routes.js";
 import { connectDB } from "./config/db.js";
 
+import dns from "node:dns/promises";
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use("/api/auth", authRoutes);
+
 
 // Test route
 app.get("/", (req, res) => {
