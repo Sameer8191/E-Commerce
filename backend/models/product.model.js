@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
@@ -21,7 +20,9 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product price is required"],
       min: 0,
       validate: {
-        validator: (value) => Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) < 1e-8,
+        validator: (value) =>
+          Number.isFinite(value) &&
+          Math.abs(value * 100 - Math.round(value * 100)) < 1e-8,
         message: "Price must have no more than two decimal places",
       },
     },
@@ -32,18 +33,34 @@ const productSchema = new mongoose.Schema(
       default: null,
       validate: [
         {
-          validator: (value) => value == null || (Number.isFinite(value) && Math.abs(value * 100 - Math.round(value * 100)) < 1e-8),
+          validator: (value) =>
+            value == null ||
+            (Number.isFinite(value) &&
+              Math.abs(value * 100 - Math.round(value * 100)) < 1e-8),
           message: "Compare-at price must have no more than two decimal places",
         },
         {
-          validator: function (value) { return value == null || value >= this.price; },
+          validator: function (value) {
+            return value == null || value >= this.price;
+          },
           message: "Compare-at price must be greater than or equal to price",
         },
       ],
     },
 
     images: {
-      type: [String],
+      type: [
+        {
+          url: {
+            type: String,
+            required: true,
+          },
+          publicId: {
+            type: String,
+            required: true,
+          },
+        },
+      ],
       default: [],
     },
 
@@ -99,10 +116,19 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const Product = mongoose.model("Product", productSchema);

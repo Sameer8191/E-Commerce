@@ -243,7 +243,7 @@ export const updateCategory = async (req, res) => {
   }
 };
 
-// SOFT DELETE CATEGORY
+
 export const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
@@ -256,13 +256,20 @@ export const deleteCategory = async (req, res) => {
     }
 
     const category = await Category.findOneAndUpdate(
-      { _id: id, isActive: true },
-      { $set: { isActive: false } },
+      {
+        _id: id,
+        isActive: true,
+      },
+      {
+        $set: {
+          isActive: false,
+        },
+      },
       {
         new: true,
         runValidators: true,
       }
-    );
+    ).select("_id name isActive");
 
     if (!category) {
       return res.status(404).json({
@@ -276,10 +283,15 @@ export const deleteCategory = async (req, res) => {
       message: "Category deactivated successfully",
       data: {
         id: category._id,
+        name: category.name,
         isActive: category.isActive,
       },
     });
   } catch (error) {
-    return handleError(res, error, "Failed to deactivate category");
+    return handleError(
+      res,
+      error,
+      "Failed to deactivate category"
+    );
   }
 };
