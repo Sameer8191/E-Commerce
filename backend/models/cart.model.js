@@ -45,3 +45,4 @@ cartSchema.path("items").validate(
 const Cart = mongoose.model("Cart", cartSchema);
 
 export default Cart;
+

@@ -32,7 +32,7 @@ const publicUser = (user) => ({
 // REGISTER USER
 export const register = async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone } = req.body ?? {};
 
     // Validate required fields
     if (
