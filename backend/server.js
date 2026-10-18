@@ -4,6 +4,7 @@ import "dotenv/config";
 import authRoutes from "./routes/auth.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import { connectDB } from "./config/db.js";
+import categoryRoutes from "./routes/category.routes.js"
 
 import dns from "node:dns/promises";
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
@@ -15,6 +16,8 @@ app.use(cors());
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/category", categoryRoutes);
+
 
 
 // Test route
