@@ -34,7 +34,7 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const user = await User.findById(decoded.userId)
-      .select("-password");
+      .select("-password -verificationOTP -verificationOTPExpires -resetPasswordOTP -resetPasswordOTPExpires");
 
     if (!user || !user.isActive) {
       return res.status(401).json({
@@ -43,7 +43,18 @@ export const requireAuth = async (req, res, next) => {
       });
     }
 
-    req.user = user;
+    if (!user.isVerified) {
+      return res.status(403).json({
+        success: false,
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Verify your email before accessing this resource",
+      });
+    }
+
+    req.user = {
+      ...user.toObject(),
+      userId: user._id.toString(),
+    };
 
     return next();
   } catch (error) {

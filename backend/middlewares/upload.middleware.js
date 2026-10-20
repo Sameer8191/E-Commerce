@@ -25,7 +25,9 @@ const upload = multer({
 
   fileFilter: (req, file, cb) => {
     if (!allowedMimeTypes.has(file.mimetype)) {
-      return cb(new Error("Unsupported image type"));
+      const error = new Error("Unsupported image type");
+      error.statusCode = 400;
+      return cb(error);
     }
 
     cb(null, true);
