@@ -1,33 +1,11 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import User from "../models/user.model.js";
-import { sendVerificationEmail } from "../services/emailService.js";
-
-
-// Generate JWT
-const createToken = (userId) => {
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    throw new Error("JWT_SECRET is required");
-  }
-
-  return jwt.sign({ userId }, secret, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  });
-};
-
-// Return only public user fields
-const publicUser = (user) => ({
-  id: user._id.toString(),
-  name: user.name,
-  email: user.email,
-  phone: user.phone,
-  avatar: user.avatar,
-  role: user.role,
-  addresses: user.addresses,
-  createdAt: user.createdAt,
-});
+import { createToken, hashOtp, toPublicUser } from "../utils/auth.utils.js";
+import {
+  sendForgotPasswordEmail,
+  sendVerificationEmail,
+} from "../services/emailService.js";
 
 // REGISTER USER
 export const register = async (req, res) => {
@@ -50,10 +28,10 @@ export const register = async (req, res) => {
     }
 
     // Validate name length
-    if (name.trim().length > 100) {
+    if (name.trim().length > 50) {
       return res.status(400).json({
         success: false,
-        message: "Name cannot exceed 100 characters",
+        message: "Name cannot exceed 50 characters",
       });
     }
 
@@ -125,9 +103,7 @@ export const register = async (req, res) => {
 
     //to generate 6 digit OTP
 
-    const verificationOTP = Math.floor(
-      100000 + Math.random() * 900000,
-    ).toString();
+    const verificationOTP = crypto.randomInt(100000, 1000000).toString();
 
     const verificationOTPExpires = Date.now() + 10 * 60 * 1000; //10mins
 
@@ -139,30 +115,32 @@ export const register = async (req, res) => {
       password: hashedPassword,
       ...(phone !== undefined && { phone: phone.trim() }),
       role: "customer",
-      verificationOTP,
+      verificationOTP: hashOtp(verificationOTP),
       verificationOTPExpires,
     });
 
     // to send the verification email
-        try {
-          await sendVerificationEmail(email, name, verificationOTP);
-        } catch (error) {
-          console.error("Failed to send verification email:", error);
-          return res.status(500).json({
-            success: false,
-            message:
-              "Account created, but failed to send verification email. Please try again later.",
-          });
-        }
-    
-
-    const token = createToken(user._id.toString());
+    try {
+      await sendVerificationEmail(
+        normalizedEmail,
+        name.trim(),
+        verificationOTP,
+      );
+    } catch (error) {
+      console.error("Failed to send verification email:", error);
+      await User.deleteOne({ _id: user._id });
+      return res.status(500).json({
+        success: false,
+        message:
+          "Account created, but failed to send verification email. Please try again later.",
+      });
+    }
 
     return res.status(201).json({
       success: true,
-      message: "Account created successfully! Please check your email for the 6-digit verification code",
-      token,
-      user: publicUser(user),
+      message:
+        "Account created successfully! Please check your email for the 6-digit verification code",
+      user: toPublicUser(user),
       isVerified: false,
     });
   } catch (error) {
@@ -245,6 +223,14 @@ export const login = async (req, res) => {
       });
     }
 
+    if (!user.isVerified) {
+      return res.status(403).json({
+        success: false,
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Verify your email before logging in",
+      });
+    }
+
     if (!process.env.JWT_SECRET) {
       console.error("JWT_SECRET is not configured");
 
@@ -260,7 +246,7 @@ export const login = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
-      user: publicUser(user),
+      user: toPublicUser(user),
     });
   } catch (error) {
     console.error("Login failed:", error);
@@ -284,7 +270,7 @@ export const getCurrentUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      user: publicUser(req.user),
+      user: toPublicUser(req.user),
     });
   } catch (error) {
     console.error("Fetching current user failed:", error);
@@ -300,20 +286,22 @@ export const getCurrentUser = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp } = req.body ?? {};
 
-    if (!email || !otp) {
+    if (typeof email !== "string" || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
       return res.status(400).json({
         success: false,
         message: "Email and OTP are required",
       });
     }
 
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
     const user = await User.findOne({
-      email,
-      verificationOTP: otp,
+      email: normalizedEmail,
+      verificationOTP: hashOtp(otp),
       verificationOTPExpires: { $gt: Date.now() },
-    });
+    }).select("+verificationOTP +verificationOTPExpires");
 
     if (!user) {
       return res.status(400).json({
@@ -343,7 +331,10 @@ export const verifyEmail = async (req, res) => {
 
 export const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
 
     if (!email) {
       return res.status(400).json({
@@ -351,18 +342,18 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, isActive: true });
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: "User not found",
+      return res.status(200).json({
+        success: true,
+        message: "If an account exists, a password reset code has been sent.",
       });
     }
 
-    const resetOTP = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetOTP = crypto.randomInt(100000, 1000000).toString();
     const resetOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    user.resetPasswordOTP = resetOTP;
+    user.resetPasswordOTP = hashOtp(resetOTP);
     user.resetPasswordOTPExpires = resetOTPExpires;
 
     await user.save();
@@ -370,18 +361,77 @@ export const forgotPassword = async (req, res) => {
     try {
       await sendForgotPasswordEmail(email, user.name, resetOTP);
     } catch (error) {
-      console.error("Failed to send reset email.", error);
+      user.resetPasswordOTP = undefined;
+      user.resetPasswordOTPExpires = undefined;
+      await user.save();
+      throw error;
     }
 
     res.status(200).json({
       success: true,
-      message:
-        "Password reset OTP sent to your email. Please check your inbox.",
+      message: "If an account exists, a password reset code has been sent.",
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Password reset email failed:", error);
+    // Keep the response indistinguishable from the unknown-account case.
+    res.status(200).json({
+      success: true,
+      message: "If an account exists, a password reset code has been sent.",
+    });
+  }
+};
+
+//Reset Password
+
+export const resetPassword = async (req, res) => {
+  try {
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+    const { otp, password } = req.body ?? {};
+
+    if (!email || typeof otp !== "string" || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Email, reset code, and new password are required",
+      });
+    }
+    if (password.length < 8 || Buffer.byteLength(password, "utf8") > 72) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be 8 to 72 UTF-8 bytes",
+      });
+    }
+
+    const user = await User.findOne({
+      email,
+      resetPasswordOTP: hashOtp(otp),
+      resetPasswordOTPExpires: { $gt: new Date() },
+    }).select("+password +resetPasswordOTP +resetPasswordOTPExpires");
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset code",
+      });
+    }
+
+    user.password = await bcrypt.hash(password, 12);
+    user.resetPasswordOTP = undefined;
+    user.resetPasswordOTPExpires = undefined;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Password reset successfully. Please log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Password reset failed:", error);
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Unable to reset password",
     });
   }
 };
