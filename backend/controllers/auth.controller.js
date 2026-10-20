@@ -202,7 +202,6 @@ export const login = async (req, res) => {
     const user = await User.findOne({
       email: normalizedEmail,
     }).select("+password");
-
     // Use the same response for incorrect email or password
     if (
       !user ||
@@ -247,6 +246,7 @@ export const login = async (req, res) => {
       message: "Login successful",
       token,
       user: toPublicUser(user),
+      isVerified:true
     });
   } catch (error) {
     console.error("Login failed:", error);
@@ -288,20 +288,32 @@ export const verifyEmail = async (req, res) => {
   try {
     const { email, otp } = req.body ?? {};
 
-    if (typeof email !== "string" || typeof otp !== "string" || !/^\d{6}$/.test(otp)) {
+    if (
+      typeof email !== "string" ||
+      !email.trim() ||
+      email.trim().length > 254 ||
+      typeof otp !== "string" ||
+      !/^\d{6}$/.test(otp)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Email and OTP are required",
       });
     }
 
-    const normalizedEmail =
-      typeof email === "string" ? email.trim().toLowerCase() : "";
-    const user = await User.findOne({
-      email: normalizedEmail,
-      verificationOTP: hashOtp(otp),
-      verificationOTPExpires: { $gt: Date.now() },
-    }).select("+verificationOTP +verificationOTPExpires");
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOneAndUpdate(
+      {
+        email: normalizedEmail,
+        verificationOTP: hashOtp(otp),
+        verificationOTPExpires: { $gt: new Date() },
+      },
+      {
+        $set: { isVerified: true },
+        $unset: { verificationOTP: 1, verificationOTPExpires: 1 },
+      },
+      { new: true, runValidators: true },
+    );
 
     if (!user) {
       return res.status(400).json({
@@ -310,19 +322,15 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    user.isVerified = true;
-    user.verificationOTP = undefined;
-    user.verificationOTPExpires = undefined;
-    await user.save();
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Email verified successfully! You can now log in.",
     });
-  } catch (err) {
-    res.status(500).json({
+  } catch (error) {
+    console.error("Email verification failed:", error);
+    return res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Unable to verify email",
     });
   }
 };
@@ -336,8 +344,9 @@ export const forgotPassword = async (req, res) => {
         ? req.body.email.trim().toLowerCase()
         : "";
 
-    if (!email) {
+    if (!email || email.length > 254) {
       return res.status(400).json({
+        success: false,
         message: "Email is required",
       });
     }
@@ -351,11 +360,10 @@ export const forgotPassword = async (req, res) => {
     }
 
     const resetOTP = crypto.randomInt(100000, 1000000).toString();
-    const resetOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const resetOTPExpires = Date.now() + 10 * 60 * 1000;
 
     user.resetPasswordOTP = hashOtp(resetOTP);
     user.resetPasswordOTPExpires = resetOTPExpires;
-
     await user.save();
 
     try {
@@ -367,21 +375,20 @@ export const forgotPassword = async (req, res) => {
       throw error;
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "If an account exists, a password reset code has been sent.",
     });
   } catch (error) {
     console.error("Password reset email failed:", error);
-    // Keep the response indistinguishable from the unknown-account case.
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "If an account exists, a password reset code has been sent.",
     });
   }
 };
 
-//Reset Password
+// Reset password
 
 export const resetPassword = async (req, res) => {
   try {
@@ -391,7 +398,13 @@ export const resetPassword = async (req, res) => {
         : "";
     const { otp, password } = req.body ?? {};
 
-    if (!email || typeof otp !== "string" || typeof password !== "string") {
+    if (
+      !email ||
+      email.length > 254 ||
+      typeof otp !== "string" ||
+      !/^\d{6}$/.test(otp) ||
+      typeof password !== "string"
+    ) {
       return res.status(400).json({
         success: false,
         message: "Email, reset code, and new password are required",
@@ -404,11 +417,19 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      email,
-      resetPasswordOTP: hashOtp(otp),
-      resetPasswordOTPExpires: { $gt: new Date() },
-    }).select("+password +resetPasswordOTP +resetPasswordOTPExpires");
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = await User.findOneAndUpdate(
+      {
+        email,
+        resetPasswordOTP: hashOtp(otp),
+        resetPasswordOTPExpires: { $gt: new Date() },
+      },
+      {
+        $set: { password: hashedPassword },
+        $unset: { resetPasswordOTP: 1, resetPasswordOTPExpires: 1 },
+      },
+      { new: true, runValidators: true },
+    );
 
     if (!user) {
       return res.status(400).json({
@@ -416,11 +437,6 @@ export const resetPassword = async (req, res) => {
         message: "Invalid or expired reset code",
       });
     }
-
-    user.password = await bcrypt.hash(password, 12);
-    user.resetPasswordOTP = undefined;
-    user.resetPasswordOTPExpires = undefined;
-    await user.save();
 
     return res.status(200).json({
       success: true,
