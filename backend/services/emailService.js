@@ -49,7 +49,7 @@ const sendEmail = async ({ to, subject, htmlContent, textContent }) => {
 const otpTemplate = (title, name, otp, message) => `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; text-align: center;">
     <h2 style="color: #4f46e5;">${title}</h2>
-    <p>Hi ${name || "User"},</p>
+    <p>Hi ${escapeHtml(name || "User")},</p>
     <p>${message}</p>
     <div style="margin: 30px 0;">
       <span style="font-size: 32px; font-weight: bold; color: #4f46e5; letter-spacing: 5px; background: #f3f4f6; padding: 10px 20px; border-radius: 8px;">${otp}</span>
@@ -60,6 +60,14 @@ const otpTemplate = (title, name, otp, message) => `
     <p style="font-size: 12px; color: #888888;">&copy; ${new Date().getFullYear()} JobPortal. All rights reserved.</p>
   </div>
 `;
+
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+}[character]));
 
 // Send Verification Email
 export const sendVerificationEmail = async (email, name, otp) => {
