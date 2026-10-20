@@ -110,10 +110,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    verificationOTP: String,
-    verificationOTPExpires: Date,
-    resetPasswordOTP: String,
-    resetPasswordOTPExpires: Date,
+    verificationOTP: { type: String, select: false },
+    verificationOTPExpires: { type: Date, select: false },
+    resetPasswordOTP: { type: String, select: false },
+    resetPasswordOTPExpires: { type: Date, select: false },
   },
 
   {
