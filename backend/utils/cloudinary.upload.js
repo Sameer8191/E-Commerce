@@ -1,6 +1,7 @@
 
 import { fileTypeFromBuffer } from "file-type";
 import cloudinary from "../config/cloudinary.js";
+import CloudinaryCleanup from "../models/cloudinary-cleanup.model.js";
 
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -73,26 +74,70 @@ export const uploadImages = async (files = []) => {
 };
 
 export const deleteCloudinaryImages = async (images = []) => {
+  const targets = images.filter((image) => image?.publicId);
   const results = await Promise.allSettled(
-    images
-      .filter((image) => image?.publicId)
-      .map((image) =>
-        cloudinary.uploader.destroy(image.publicId, {
-          resource_type: "image",
-          invalidate: true,
-        })
-      )
+    targets.map((image) =>
+      cloudinary.uploader.destroy(image.publicId, {
+        resource_type: "image",
+        invalidate: true,
+      })
+    ),
   );
 
-  // Cleanup failures shouldn't hide the original operation's error.
-  for (const result of results) {
-    if (result.status === "rejected") {
-      console.error(
-        "Cloudinary cleanup failed:",
-        result.reason
+  const failed = results.flatMap((result, index) =>
+    result.status === "rejected" || result.value?.result === "error"
+      ? [{ publicId: targets[index].publicId, error: result.reason || result.value }]
+      : [],
+  );
+
+  let queued = [];
+  if (failed.length) {
+    try {
+      await CloudinaryCleanup.bulkWrite(
+        failed.map(({ publicId, error }) => ({
+          updateOne: {
+            filter: { publicId },
+            update: {
+              $setOnInsert: { publicId },
+              $set: {
+                nextAttemptAt: new Date(),
+                lockedUntil: null,
+                lastError: String(error?.message || error).slice(0, 1000),
+              },
+            },
+            upsert: true,
+          },
+        })),
       );
+      queued = failed.map(({ publicId }) => publicId);
+    } catch (error) {
+      console.error("Unable to persist Cloudinary cleanup tasks:", {
+        publicIds: failed.map(({ publicId }) => publicId),
+        error,
+      });
+      try {
+        queued = await CloudinaryCleanup.find({
+          publicId: { $in: failed.map(({ publicId }) => publicId) },
+        }).distinct("publicId");
+      } catch (lookupError) {
+        console.error("Unable to confirm persisted Cloudinary cleanup tasks:", lookupError);
+      }
     }
   }
 
-  return results;
+  for (const { publicId, error } of failed) {
+    if (queued.includes(publicId)) {
+      console.error("Cloudinary cleanup queued for retry:", publicId, error);
+    } else {
+      console.error("Cloudinary cleanup could not be queued:", publicId, error);
+    }
+  }
+
+  return {
+    attempted: targets.length,
+    queued,
+    unqueued: failed
+      .map(({ publicId }) => publicId)
+      .filter((publicId) => !queued.includes(publicId)),
+  };
 };

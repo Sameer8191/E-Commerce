@@ -7,11 +7,11 @@ export const getUserId = (req) => {
   return id && isValidObjectId(id) ? id : null;
 };
 
-export const createToken = (userId) => {
+export const createToken = (userId, tokenVersion = 0) => {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error("JWT_SECRET is required");
 
-  return jwt.sign({ userId }, secret, {
+  return jwt.sign({ userId, tokenVersion }, secret, {
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });
 };
