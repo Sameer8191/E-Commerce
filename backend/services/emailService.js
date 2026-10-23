@@ -21,7 +21,7 @@ const sendEmail = async ({ to, subject, htmlContent, textContent }) => {
         Accept: "application/json",
       },
       body: JSON.stringify({
-        sender: { name: "JobPortal", email: SENDER_EMAIL },
+        sender: { name: "E-Commerce", email: SENDER_EMAIL },
         to,
         subject,
         htmlContent,
@@ -57,7 +57,7 @@ const otpTemplate = (title, name, otp, message) => `
     <p>This code will expire in 10 minutes.</p>
     <p>If you did not request this, please ignore this email.</p>
     <hr style="border: 0; border-top: 1px solid #eeeeee; margin: 20px 0;">
-    <p style="font-size: 12px; color: #888888;">&copy; ${new Date().getFullYear()} JobPortal. All rights reserved.</p>
+    <p style="font-size: 12px; color: #888888;">&copy; ${new Date().getFullYear()} E-Commerce. All rights reserved.</p>
   </div>
 `;
 
@@ -77,7 +77,7 @@ export const sendVerificationEmail = async (email, name, otp) => {
 
   return sendEmail({
     to: [{ email: email.trim(), name: safeName }],
-    subject: "Your Verification Code - JobPortal",
+    subject: "Your Verification Code - E-Commerce",
     htmlContent: otpTemplate("Verify Your Email", safeName, otp, message),
     textContent: `Hi ${safeName}, ${message} ${otp}. This code will expire in 10 minutes.`,
   });
@@ -91,7 +91,7 @@ export const sendForgotPasswordEmail = async (email, name, otp) => {
 
   return sendEmail({
     to: [{ email: email.trim(), name: safeName }],
-    subject: "Reset Your Password - JobPortal",
+    subject: "Reset Your Password - E-Commerce",
     htmlContent: otpTemplate("Reset Your Password", safeName, otp, message),
     textContent: `Hi ${safeName}, ${message} ${otp}. This code will expire in 10 minutes.`,
   });

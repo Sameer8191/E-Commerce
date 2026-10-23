@@ -2,10 +2,12 @@ import express from "express";
 import {
   createProduct,
   deleteProduct,
-  getProductById,
-  getProducts,
   updateProduct,
 } from "../controllers/product.controller.js";
+import {
+  getProductById,
+  getProducts,
+} from "../controllers/productCatalog.controller.js";
 import { authorize, requireAuth } from "../middlewares/auth.middleware.js";
 import { uploadProductImages } from "../middlewares/upload.middleware.js";
 

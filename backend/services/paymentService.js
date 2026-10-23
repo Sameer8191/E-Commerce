@@ -7,10 +7,14 @@ export const createRazorpayClient = () => {
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     throw new Error("Razorpay credentials are not configured");
   }
-  return new Razorpay({
+  const client = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
     key_secret: RAZORPAY_KEY_SECRET,
   });
+  // The SDK does not expose a timeout option; bound network calls so claim
+  // heartbeats cannot hold an order indefinitely on a stalled request.
+  client.api.rq.defaults.timeout = 90_000;
+  return client;
 };
 
 export const expectedPaise = (order) => {
@@ -70,6 +74,18 @@ export const applyCapturedPayment = async ({
       }
 
       if (order.orderStatus === "cancelled" || order.inventoryReleasedAt) {
+        if (
+          order.razorpayPaymentId === razorpayPaymentId &&
+          order.refundStatus === "processed"
+        ) {
+          if (order.paymentStatus !== "refunded") {
+            order.paymentStatus = "refunded";
+            await order.save({ session });
+          }
+          outcome = { kind: "already_refunded", order };
+          return;
+        }
+
         // Record the captured payment and persist a refund task with the order.
         order.paymentStatus = "paid";
         order.razorpayPaymentId = razorpayPaymentId;
@@ -243,5 +259,3 @@ export const attemptRefund = async (orderId) => {
     return { claimed: true, error };
   }
 };
-
-

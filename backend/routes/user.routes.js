@@ -11,7 +11,7 @@ import {
 } from "../controllers/user.controller.js";
 
 import { requireAuth } from "../middlewares/auth.middleware.js";
-import { authorize } from "../middlewares/admin.middleware.js";
+import { authorize } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
