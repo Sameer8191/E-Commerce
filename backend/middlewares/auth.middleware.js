@@ -1,4 +1,3 @@
-
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 
@@ -25,7 +24,9 @@ export const requireAuth = async (req, res, next) => {
 
     if (
       typeof decoded === "string" ||
-      !decoded.userId
+      !decoded.userId ||
+      !Number.isSafeInteger(decoded.tokenVersion) ||
+      decoded.tokenVersion < 0
     ) {
       return res.status(401).json({
         success: false,
@@ -34,9 +35,13 @@ export const requireAuth = async (req, res, next) => {
     }
 
     const user = await User.findById(decoded.userId)
-      .select("-password -verificationOTP -verificationOTPExpires -resetPasswordOTP -resetPasswordOTPExpires");
+      .select("+authTokenVersion");
 
-    if (!user || !user.isActive) {
+    if (
+      !user ||
+      !user.isActive ||
+      decoded.tokenVersion !== user.authTokenVersion
+    ) {
       return res.status(401).json({
         success: false,
         message: "Invalid or inactive account",

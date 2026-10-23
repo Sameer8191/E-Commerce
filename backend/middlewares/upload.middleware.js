@@ -34,7 +34,24 @@ const upload = multer({
   },
 });
 
-export const uploadProductImages = upload.array(
-  "images",
-  MAX_FILES
-);
+
+export const uploadProductImages = (req, res, next) => {
+  upload.array("images", MAX_FILES)(req, res, (error) => {
+    if (error) {
+      console.error("Multer upload error:", {
+        name: error.name,
+        code: error.code,
+        message: error.message,
+      });
+
+      return next(error);
+    }
+
+    next();
+  });
+};
+
+// export const uploadProductImages = upload.array(
+//   "images",
+//   MAX_FILES
+// );
