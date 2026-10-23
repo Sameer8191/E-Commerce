@@ -11,6 +11,12 @@ export const connectDB = async () => {
 
     const conn = await mongoose.connect(mongoUri);
 
+    // Checkout and cancellation rely on multi-document transactions.
+    const topology = await conn.connection.db.admin().command({ hello: 1 });
+    if (!topology.setName && topology.msg !== "isdbgrid") {
+      throw new Error("MongoDB transactions require a replica set or sharded cluster");
+    }
+
     console.log("MongoDB Connected", conn.connection.host);
   } catch (error) {
     console.error("MongoDB connection failed", error.message);
