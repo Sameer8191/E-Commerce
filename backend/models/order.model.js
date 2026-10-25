@@ -34,7 +34,9 @@ const orderItemSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      required: true,
+      // Bulk imported products may not have an image. Orders must still be
+      // valid; the storefront can render its normal image fallback instead.
+      default: "",
       trim: true,
     },
   },
@@ -88,6 +90,60 @@ const shippingAddressSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const returnRequestSchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: ["none", "requested", "approved", "rejected", "refunded"],
+      default: "none",
+      required: true,
+    },
+    reason: {
+      type: String,
+      enum: ["defective", "wrong_item", "not_as_described", "changed_mind", "other"],
+      default: null,
+    },
+    details: { type: String, trim: true, maxlength: 500, default: "" },
+    requestedAt: { type: Date, default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    reviewNote: { type: String, trim: true, maxlength: 500, default: "" },
+  },
+  { _id: false },
+);
+
+const vendorOrderSchema = new mongoose.Schema(
+  {
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      required: true,
+      index: true,
+    },
+    storeName: { type: String, required: true, trim: true },
+    items: { type: [orderItemSchema], required: true },
+    subtotal: { type: Number, required: true, min: 0 },
+    commissionRate: { type: Number, required: true, min: 0, max: 100 },
+    commissionAmount: { type: Number, required: true, min: 0 },
+    payableAmount: { type: Number, required: true, min: 0 },
+    fulfillmentStatus: {
+      type: String,
+      enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"],
+      default: "pending",
+      required: true,
+    },
+    settlementStatus: {
+      type: String,
+      enum: ["pending", "paid"],
+      default: "pending",
+      required: true,
+    },
+    settledAt: { type: Date, default: null },
+    settlementReference: { type: String, trim: true, maxlength: 200, default: "" },
+  },
+  { _id: true },
+);
+
 const orderSchema = new mongoose.Schema(
   {
     orderNumber: {
@@ -110,6 +166,10 @@ const orderSchema = new mongoose.Schema(
       validate: {
         validator: (items) => items.length > 0,
         message: "An order must contain at least one item",
+      },
+      vendorOrders: {
+        type: [vendorOrderSchema],
+        default: [],
       },
     },
 
@@ -165,6 +225,14 @@ const orderSchema = new mongoose.Schema(
           Math.abs(value * 100 - Math.round(value * 100)) < 1e-8,
         message: "Discount must have no more than two decimal places",
       },
+
+      couponCode: {
+        type: String,
+        trim: true,
+        uppercase: true,
+        maxlength: 40,
+        default: "",
+      },
     },
 
     totalAmount: {
@@ -215,6 +283,18 @@ const orderSchema = new mongoose.Schema(
       sparse: true,
     },
 
+    paymentOrderCreationToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    paymentOrderCreationExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed", "refunded"],
@@ -235,6 +315,9 @@ const orderSchema = new mongoose.Schema(
       default: "pending",
       required: true,
     },
+
+    deliveredAt: { type: Date, default: null },
+    returnRequest: { type: returnRequestSchema, default: () => ({}) },
 
     checkoutIdempotencyKey: {
       type: String,
@@ -278,6 +361,7 @@ checkoutFingerprint: {
     refundAttempts: { type: Number, default: 0, min: 0 },
     refundNextAttemptAt: { type: Date, default: null },
     refundError: { type: String, default: null, maxlength: 1000 },
+    manualRefundReference: { type: String, default: null, trim: true, maxlength: 200 },
 
     placedAt: {
       type: Date,
@@ -299,6 +383,7 @@ orderSchema.index(
   },
 );
 
+orderSchema.index({ user: 1, placedAt: -1, _id: -1 });
 orderSchema.index({ orderStatus: 1, refundStatus: 1, refundNextAttemptAt: 1 });
 
 const Order = mongoose.model("Order", orderSchema);

@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      required: true,
+      index: true,
+    },
     name: {
       type: String,
       required: [true, "Product name is required"],
@@ -84,6 +90,16 @@ const productSchema = new mongoose.Schema(
       validate: {
         validator: Number.isInteger,
         message: "Stock must be an integer",
+      },
+    },
+
+    lowStockThreshold: {
+      type: Number,
+      default: 5,
+      min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "Low stock threshold must be an integer",
       },
     },
 

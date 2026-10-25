@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { USER_ROLES } from "../config/admin-permissions.js";
 
 const addressSchema = new mongoose.Schema(
   {
@@ -19,6 +20,7 @@ const addressSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    street2: { type: String, trim: true, maxlength: 200, default: "" },
 
     city: {
       type: String,
@@ -93,7 +95,7 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["customer", "admin"],
+      enum: USER_ROLES,
       default: "customer",
     },
 
@@ -105,6 +107,13 @@ const userSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    authTokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+      validate: Number.isSafeInteger,
+      select: false,
     },
     isVerified: {
       type: Boolean,
