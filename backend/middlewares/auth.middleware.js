@@ -1,5 +1,11 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
+import Vendor from "../models/vendor.model.js";
+import {
+  getPermissionsForRole,
+  hasAnyPermission,
+  PERMISSIONS,
+} from "../config/admin-permissions.js";
 
 // AUTHENTICATION: Verify token and identify the user
 export const requireAuth = async (req, res, next) => {
@@ -59,6 +65,7 @@ export const requireAuth = async (req, res, next) => {
     req.user = {
       ...user.toObject(),
       userId: user._id.toString(),
+      permissions: getPermissionsForRole(user.role),
     };
 
     return next();
@@ -86,4 +93,78 @@ export const authorize = (...roles) => {
 
     return next();
   };
+};
+
+export const authorizePermission = (...permissions) => {
+  return (req, res, next) => {
+    if (!req.user || !hasAnyPermission(req.user.role, permissions)) {
+      return res.status(403).json({
+        success: false,
+        code: "INSUFFICIENT_PERMISSION",
+        message: "Access denied. Your staff role does not have permission for this action.",
+      });
+    }
+    return next();
+  };
+};
+
+export const requireProductManagement = async (req, res, next) => {
+    if (hasAnyPermission(req.user?.role, [PERMISSIONS.CATALOG_MANAGE])) {
+      return next();
+    }
+
+    if (req.user?.role !== "vendor") {
+      return res.status(403).json({
+        success: false,
+        code: "INSUFFICIENT_PERMISSION",
+        message: "Access denied. Product management permission is required.",
+      });
+    }
+
+    try {
+      const vendor = await Vendor.findOne({
+        owner: req.user.userId,
+        status: "approved",
+        isPlatform: false,
+      });
+      if (!vendor) {
+        return res.status(403).json({
+          success: false,
+          code: "VENDOR_NOT_APPROVED",
+          message: "An approved vendor account is required.",
+        });
+      }
+      req.vendor = vendor;
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+};
+
+export const requireApprovedVendor = async (req, res, next) => {
+    if (req.user?.role !== "vendor") {
+      return res.status(403).json({
+        success: false,
+        code: "VENDOR_ACCESS_REQUIRED",
+        message: "An approved vendor account is required.",
+      });
+    }
+    try {
+      const vendor = await Vendor.findOne({
+        owner: req.user.userId,
+        status: "approved",
+        isPlatform: false,
+      });
+      if (!vendor) {
+        return res.status(403).json({
+          success: false,
+          code: "VENDOR_NOT_APPROVED",
+          message: "Your vendor account is not active.",
+        });
+      }
+      req.vendor = vendor;
+      return next();
+    } catch (error) {
+      return next(error);
+    }
 };

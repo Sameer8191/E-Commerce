@@ -51,6 +51,55 @@ export const uploadProductImages = (req, res, next) => {
   });
 };
 
+const bulkProductImportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+    files: 1,
+    fields: 1,
+    parts: 2,
+    fieldNameSize: 100,
+    fieldSize: 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    if (
+      file.fieldname !== "imagesZip" ||
+      !file.originalname.toLowerCase().endsWith(".zip")
+    ) {
+      const error = new Error("Choose an image ZIP file.");
+      error.statusCode = 400;
+      return cb(error);
+    }
+    cb(null, true);
+  },
+});
+
+export const uploadBulkProductImport = (req, res, next) => {
+  bulkProductImportUpload.fields([{ name: "imagesZip", maxCount: 1 }])(
+    req,
+    res,
+    (error) => {
+      if (error) {
+        console.error("Bulk product upload error:", {
+          name: error.name,
+          code: error.code,
+          message: error.message,
+        });
+        const status = error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+        return res.status(status).json({
+          success: false,
+          message:
+            status === 413
+              ? "Image ZIP archive exceeds the 50 MB limit."
+              : error.message || "Could not process the product import files.",
+        });
+      }
+
+      next();
+    },
+  );
+};
+
 // export const uploadProductImages = upload.array(
 //   "images",
 //   MAX_FILES

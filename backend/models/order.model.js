@@ -103,6 +103,8 @@ const returnRequestSchema = new mongoose.Schema(
       enum: ["defective", "wrong_item", "not_as_described", "changed_mind", "other"],
       default: null,
     },
+    items: { type: [orderItemSchema], default: [] },
+    refundAmount: { type: Number, min: 0, default: 0 },
     details: { type: String, trim: true, maxlength: 500, default: "" },
     requestedAt: { type: Date, default: null },
     reviewedAt: { type: Date, default: null },
@@ -123,15 +125,21 @@ const vendorOrderSchema = new mongoose.Schema(
     storeName: { type: String, required: true, trim: true },
     items: { type: [orderItemSchema], required: true },
     subtotal: { type: Number, required: true, min: 0 },
+    returnedSubtotal: { type: Number, min: 0, default: 0 },
     commissionRate: { type: Number, required: true, min: 0, max: 100 },
     commissionAmount: { type: Number, required: true, min: 0 },
+    returnedCommissionAmount: { type: Number, min: 0, default: 0 },
     payableAmount: { type: Number, required: true, min: 0 },
+    returnedPayableAmount: { type: Number, min: 0, default: 0 },
+    returnedItems: { type: [orderItemSchema], default: [] },
     fulfillmentStatus: {
       type: String,
       enum: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"],
       default: "pending",
       required: true,
     },
+    trackingNumber: { type: String, trim: true, maxlength: 120, default: "" },
+    trackingUrl: { type: String, trim: true, maxlength: 500, default: "" },
     settlementStatus: {
       type: String,
       enum: ["pending", "paid"],
@@ -167,10 +175,11 @@ const orderSchema = new mongoose.Schema(
         validator: (items) => items.length > 0,
         message: "An order must contain at least one item",
       },
-      vendorOrders: {
-        type: [vendorOrderSchema],
-        default: [],
-      },
+    },
+
+    vendorOrders: {
+      type: [vendorOrderSchema],
+      default: [],
     },
 
     shippingAddress: {
@@ -297,7 +306,7 @@ const orderSchema = new mongoose.Schema(
 
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed", "refunded"],
+      enum: ["pending", "paid", "partially_refunded", "failed", "refunded"],
       default: "pending",
       required: true,
     },

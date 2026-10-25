@@ -30,6 +30,10 @@ const cartSchema = new mongoose.Schema(
         },
       },
     ],
+    mergedGuestCartIds: {
+      type: [String],
+      default: [],
+    },
   },
   { timestamps: true, optimisticConcurrency: true }
 );
@@ -45,4 +49,3 @@ cartSchema.path("items").validate(
 const Cart = mongoose.model("Cart", cartSchema);
 
 export default Cart;
-
