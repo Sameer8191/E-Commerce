@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import Razorpay from "razorpay";
 import Order from "../models/order.model.js";
+import { notifyCustomerOrder } from "./customerNotificationService.js";
 export const createRazorpayClient = () => {
   const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
@@ -25,6 +26,13 @@ export const expectedPaise = (order) => {
   return Number.isSafeInteger(paise) && Math.abs(value * 100 - paise) < 1e-7
     ? paise
     : null;
+};
+
+const refundPaymentStatus = (order, refundAmountPaise) => {
+  const totalAmountPaise = expectedPaise(order);
+  return totalAmountPaise !== null && refundAmountPaise < totalAmountPaise
+    ? "partially_refunded"
+    : "refunded";
 };
 
 export const verifySignature = (orderId, paymentId, signature, secret) => {
@@ -101,7 +109,7 @@ export const applyCapturedPayment = async ({
       }
 
       if (
-        order.paymentStatus === "paid" &&
+        ["paid", "partially_refunded"].includes(order.paymentStatus) &&
         order.razorpayPaymentId === razorpayPaymentId
       ) {
         outcome = { kind: "already_paid", order };
@@ -122,6 +130,7 @@ export const applyCapturedPayment = async ({
             razorpayPaymentId,
             paymentMethod: "razorpay",
             orderStatus: "confirmed",
+            "vendorOrders.$[].fulfillmentStatus": "confirmed",
           },
         },
         { new: true, session, runValidators: true },
@@ -142,6 +151,15 @@ export const applyCapturedPayment = async ({
 
       outcome = { kind: "paid", order: updated };
     });
+    if (outcome?.kind === "paid" && outcome.order) {
+      void notifyCustomerOrder({
+        order: outcome.order,
+        eventKey: `order:${outcome.order._id}:payment-confirmed`,
+        title: "Payment confirmed",
+        message: `Payment for order ${outcome.order.orderNumber} is confirmed. We’ll start preparing your order.`,
+        subject: `Payment confirmed for order ${outcome.order.orderNumber}`,
+      });
+    }
     return outcome;
   } finally {
     await session.endSession();
@@ -156,12 +174,17 @@ export const attemptRefund = async (orderId) => {
   const order = await Order.findOneAndUpdate(
     {
       _id: orderId,
-      orderStatus: "cancelled",
       refundPaymentId: { $type: "string" },
       $or: [
-        { refundStatus: { $in: ["pending", "failed"] }, refundNextAttemptAt: { $lte: now } },
-        { refundStatus: "processing", updatedAt: { $lte: leaseExpired } },
+        { orderStatus: "cancelled" },
+        { "returnRequest.status": "approved" },
       ],
+      $and: [{
+        $or: [
+          { refundStatus: { $in: ["pending", "failed"] }, refundNextAttemptAt: { $lte: now } },
+          { refundStatus: "processing", updatedAt: { $lte: leaseExpired } },
+        ],
+      }],
     },
     {
       $set: { refundStatus: "processing", refundError: null },
@@ -184,7 +207,11 @@ export const attemptRefund = async (orderId) => {
   );
 
   try {
-    const amount = expectedPaise(order);
+    const amount = expectedPaise({
+      totalAmount: order.returnRequest?.status === "approved"
+        ? order.returnRequest.refundAmount
+        : order.totalAmount,
+    });
     if (!Number.isSafeInteger(amount)) throw new Error("Invalid refund amount");
     const receipt = order.refundReceipt || `ord-${order._id.toString()}-${order.refundAttempts}`;
     if (!order.refundReceipt) {
@@ -208,8 +235,23 @@ export const attemptRefund = async (orderId) => {
     if (confirmedRefund) {
       await Order.updateOne(
         { _id: order._id, refundStatus: "processing" },
-        { $set: { refundStatus: "processed", paymentStatus: "refunded", refundNextAttemptAt: null, refundError: null } },
+        {
+          $set: {
+            refundStatus: "processed",
+            paymentStatus: refundPaymentStatus(order, amount),
+            refundNextAttemptAt: null,
+            refundError: null,
+            ...(order.returnRequest?.status === "approved" && { "returnRequest.status": "refunded" }),
+          },
+        },
       );
+      void notifyCustomerOrder({
+        order,
+        eventKey: `order:${order._id}:refund-processed`,
+        title: "Refund processed",
+        message: `The refund for order ${order.orderNumber} has been processed by the payment provider.`,
+        subject: `Refund update for order ${order.orderNumber}`,
+      });
       return { claimed: true, reconciled: true };
     }
     const pendingRefund = relatedRefunds.find((item) => item.status === "pending");
@@ -228,7 +270,9 @@ export const attemptRefund = async (orderId) => {
         receipt,
         notes: {
           localOrderId: order._id.toString(),
-          reason: "Payment captured after order cancellation",
+          reason: order.returnRequest?.status === "approved"
+            ? `Customer return: ${order.returnRequest.reason || "reason not supplied"}`
+            : "Payment captured after order cancellation",
         },
       });
     }
@@ -236,8 +280,23 @@ export const attemptRefund = async (orderId) => {
     if (refund.status === "processed") {
       await Order.updateOne(
         { _id: order._id, refundStatus: "processing" },
-        { $set: { refundStatus: "processed", paymentStatus: "refunded", refundNextAttemptAt: null, refundError: null } },
+        {
+          $set: {
+            refundStatus: "processed",
+            paymentStatus: refundPaymentStatus(order, amount),
+            refundNextAttemptAt: null,
+            refundError: null,
+            ...(order.returnRequest?.status === "approved" && { "returnRequest.status": "refunded" }),
+          },
+        },
       );
+      void notifyCustomerOrder({
+        order,
+        eventKey: `order:${order._id}:refund-processed`,
+        title: "Refund processed",
+        message: `The refund for order ${order.orderNumber} has been processed by the payment provider.`,
+        subject: `Refund update for order ${order.orderNumber}`,
+      });
     } else {
       const isFailed = refund.status === "failed";
       await Order.updateOne(

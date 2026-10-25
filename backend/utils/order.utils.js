@@ -53,9 +53,13 @@ export const normalizeAddress = (address) => ({
   city: address.city.trim(),
   state: address.state.trim(),
   postalCode: address.postalCode.trim(),
-  country: address.country?.trim() || "India",
+  country: address.country?.trim().toLowerCase() === "india"
+    ? "India"
+    : address.country?.trim() || "India",
 });
 
+export const isSupportedShippingAddress = (address) =>
+  (address?.country?.trim() || "India").toLowerCase() === "india";
 
 export const moneyToPaise = (value) => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
@@ -78,13 +82,14 @@ export const createHttpError = (status, message) => {
   return error;
 };
 
-export const fingerprintCheckout = ({ shippingAddress, paymentMethod }) =>
+export const fingerprintCheckout = ({ shippingAddress, paymentMethod, couponCode = "" }) =>
   crypto
     .createHash("sha256")
     .update(
       JSON.stringify({
         shippingAddress: normalizeAddress(shippingAddress),
         paymentMethod,
+        couponCode,
       }),
     )
     .digest("hex");
@@ -120,4 +125,3 @@ export const assertSameCheckout = (order, fingerprint) => {
     );
   }
 };
-

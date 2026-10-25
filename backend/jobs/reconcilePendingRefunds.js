@@ -5,15 +5,20 @@ export const reconcilePendingRefunds = async () => {
   const now = new Date();
   const staleProcessing = new Date(now.getTime() - 5 * 60 * 1000);
   const orders = await Order.find({
-    orderStatus: "cancelled",
     refundPaymentId: { $type: "string" },
     $or: [
+      { orderStatus: "cancelled" },
+      { "returnRequest.status": "approved" },
+    ],
+    $and: [{
+      $or: [
       {
         refundStatus: { $in: ["pending", "failed"] },
         refundNextAttemptAt: { $lte: now },
       },
       { refundStatus: "processing", updatedAt: { $lte: staleProcessing } },
-    ],
+      ],
+    }],
   })
     .select("_id")
     .limit(100)

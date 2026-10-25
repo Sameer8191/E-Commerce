@@ -5,7 +5,7 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY?.trim();
 const SENDER_EMAIL = process.env.EMAIL_USER?.trim();
 
 // Reusable email sender function
-const sendEmail = async ({ to, subject, htmlContent, textContent }) => {
+export const sendEmail = async ({ to, subject, htmlContent, textContent }) => {
   try {
     if (!BREVO_API_KEY || !SENDER_EMAIL) {
       throw new Error(
