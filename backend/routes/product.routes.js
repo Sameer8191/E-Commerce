@@ -8,7 +8,7 @@ import {
   getProductById,
   getProducts,
 } from "../controllers/productCatalog.controller.js";
-import { authorize, requireAuth } from "../middlewares/auth.middleware.js";
+import { requireAuth, requireProductManagement } from "../middlewares/auth.middleware.js";
 import { uploadProductImages } from "../middlewares/upload.middleware.js";
 
 const productRoutes = express.Router();
@@ -17,18 +17,18 @@ const productRoutes = express.Router();
 productRoutes.get("/", getProducts);
 productRoutes.get("/:id", getProductById);
 
-// Product management is restricted to authenticated admins.
+// Product management is restricted to staff with catalog-management access.
 productRoutes.post(
   "/",
   requireAuth,
-  authorize("admin"),
+  requireProductManagement,
   uploadProductImages,
   createProduct,
 );
 productRoutes
   .route("/:id")
-  .put(requireAuth, authorize("admin"), uploadProductImages, updateProduct)
-  .patch(requireAuth, authorize("admin"), uploadProductImages, updateProduct)
-  .delete(requireAuth, authorize("admin"), deleteProduct);
+  .put(requireAuth, requireProductManagement, uploadProductImages, updateProduct)
+  .patch(requireAuth, requireProductManagement, uploadProductImages, updateProduct)
+  .delete(requireAuth, requireProductManagement, deleteProduct);
 
 export default productRoutes;

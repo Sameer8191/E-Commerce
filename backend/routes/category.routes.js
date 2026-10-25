@@ -6,7 +6,8 @@ import {
   getCategoryById,
   updateCategory,
 } from "../controllers/category.controller.js";
-import { authorize, requireAuth } from "../middlewares/auth.middleware.js";
+import { authorizePermission, requireAuth } from "../middlewares/auth.middleware.js";
+import { PERMISSIONS } from "../config/admin-permissions.js";
 
 const categoryRoutes = express.Router();
 
@@ -14,12 +15,12 @@ const categoryRoutes = express.Router();
 categoryRoutes.get("/", getCategories);
 categoryRoutes.get("/:id", getCategoryById);
 
-// Category management is restricted to authenticated admins.
-categoryRoutes.post("/", requireAuth, authorize("admin"), createCategory);
+// Category management is restricted to staff with catalog-management access.
+categoryRoutes.post("/", requireAuth, authorizePermission(PERMISSIONS.CATALOG_MANAGE), createCategory);
 categoryRoutes
   .route("/:id")
-  .put(requireAuth, authorize("admin"), updateCategory)
-  .patch(requireAuth, authorize("admin"), updateCategory)
-  .delete(requireAuth, authorize("admin"), deleteCategory);
+  .put(requireAuth, authorizePermission(PERMISSIONS.CATALOG_MANAGE), updateCategory)
+  .patch(requireAuth, authorizePermission(PERMISSIONS.CATALOG_MANAGE), updateCategory)
+  .delete(requireAuth, authorizePermission(PERMISSIONS.CATALOG_MANAGE), deleteCategory);
 
 export default categoryRoutes;

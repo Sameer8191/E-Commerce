@@ -1,6 +1,7 @@
 ﻿import express from "express";
 import {
   cancelOrder,
+  createReturnRequest,
   getMyOrders,
   getOrderById,
 } from "../controllers/order.controller.js";
@@ -14,5 +15,6 @@ orderRouter.post("/", createOrder);
 orderRouter.get("/", getMyOrders);
 orderRouter.get("/:orderId", getOrderById);
 orderRouter.patch("/:orderId/cancel", cancelOrder);
+orderRouter.post("/:orderId/return-request", createReturnRequest);
 
 export default orderRouter;
