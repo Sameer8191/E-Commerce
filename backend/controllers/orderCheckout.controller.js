@@ -120,7 +120,7 @@ export const createOrder = async (req, res) => {
         .session(session)
         .populate({
           path: "items.product",
-          select: "name price images stock isActive isDeleted category vendor",
+          select: "name price images stock variants isActive isDeleted category vendor",
         });
 
       if (!cart?.items?.length) {
@@ -151,7 +151,9 @@ export const createOrder = async (req, res) => {
           throw createHttpError(400, `Invalid quantity for ${product.name}`);
         }
 
-        const key = product._id.toString();
+        const variant = cartItem.variant || "";
+        if ((product.variants?.length && !product.variants.includes(variant)) || (!product.variants?.length && variant)) throw createHttpError(409, `Choose an available option for ${product.name}`);
+        const key = `${product._id.toString()}:${variant}`;
         const previousItem = merged.get(key);
         const quantity = (previousItem?.quantity ?? 0) + cartItem.quantity;
 
@@ -159,7 +161,7 @@ export const createOrder = async (req, res) => {
           throw createHttpError(400, "Product quantity is too large");
         }
 
-        merged.set(key, { product, quantity });
+        merged.set(key, { product, variant, quantity });
       }
 
       // Consistent write ordering reduces avoidable write conflicts.
@@ -182,7 +184,7 @@ export const createOrder = async (req, res) => {
       const itemsByVendor = new Map();
       let subtotalPaise = 0;
 
-      for (const { product, quantity } of entries) {
+      for (const { product, quantity, variant } of entries) {
         const vendorId = product.vendor?.toString();
         const vendor = vendorId ? vendorById.get(vendorId) : null;
         if (!vendor) {
@@ -201,7 +203,8 @@ export const createOrder = async (req, res) => {
           );
         }
 
-        if (!Number.isSafeInteger(product.stock) || product.stock < quantity) {
+        const totalProductQuantity = entries.filter((entry) => entry.product._id.toString() === product._id.toString()).reduce((sum, entry) => sum + entry.quantity, 0);
+        if (!Number.isSafeInteger(product.stock) || product.stock < totalProductQuantity) {
           throw createHttpError(409, `Insufficient stock for ${product.name}`);
         }
 
@@ -221,6 +224,7 @@ export const createOrder = async (req, res) => {
         const orderItem = {
           product: product._id,
           name: product.name,
+          variant,
           price: pricePaise / 100,
           quantity,
           image: product.images?.[0]?.url || "",

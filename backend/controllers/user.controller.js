@@ -1,9 +1,78 @@
 
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import User from "../models/user.model.js";
 import AdminActivity from "../models/admin-activity.model.js";
 import { STAFF_ROLES, getPermissionsForRole } from "../config/admin-permissions.js";
 import { validAddress, normalizeAddress } from "../utils/order.utils.js";
+import { hashOtp } from "../utils/auth.utils.js";
+import { sendEmailChangeCode } from "../services/emailService.js";
+
+export const requestEmailChange = async (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const password = req.body?.password;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || typeof password !== "string") return res.status(400).json({ success: false, message: "Enter a valid email and your current password." });
+  try {
+    const user = await User.findOne({ _id: req.user.userId, isActive: true }).select("+password +authTokenVersion");
+    if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ success: false, message: "Your current password is incorrect." });
+    if (email === user.email) return res.status(400).json({ success: false, message: "That is already your email address." });
+    if (await User.exists({ email })) return res.status(409).json({ success: false, message: "An account already uses that email address." });
+    const otp = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+    user.pendingEmail = email;
+    user.emailChangeOTP = hashOtp(otp);
+    user.emailChangeOTPExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+    await sendEmailChangeCode(email, user.name, otp);
+    return res.json({ success: true, message: "A confirmation code was sent to your new email address." });
+  } catch (error) {
+    console.error("Email change request failed:", error);
+    return res.status(500).json({ success: false, message: "Could not send a confirmation code. Please try again." });
+  }
+};
+
+export const confirmEmailChange = async (req, res) => {
+  const otp = req.body?.otp;
+  if (typeof otp !== "string" || !/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, message: "Enter the six-digit confirmation code." });
+  try {
+    const user = await User.findOne({ _id: req.user.userId, isActive: true }).select("+pendingEmail +emailChangeOTP +emailChangeOTPExpires +authTokenVersion");
+    if (!user?.pendingEmail || !user.emailChangeOTP || user.emailChangeOTPExpires <= new Date() || user.emailChangeOTP !== hashOtp(otp)) return res.status(400).json({ success: false, message: "That code is invalid or expired. Request a new one." });
+    if (await User.exists({ email: user.pendingEmail, _id: { $ne: user._id } })) return res.status(409).json({ success: false, message: "An account already uses that email address." });
+    user.email = user.pendingEmail;
+    user.pendingEmail = undefined;
+    user.emailChangeOTP = undefined;
+    user.emailChangeOTPExpires = undefined;
+    user.isVerified = true;
+    user.authTokenVersion += 1;
+    await user.save();
+    return res.json({ success: true, message: "Email updated. Sign in again with your new address." });
+  } catch (error) {
+    console.error("Email change confirmation failed:", error);
+    return res.status(500).json({ success: false, message: "Could not update your email address." });
+  }
+};
+
+export const deleteMyAccount = async (req, res) => {
+  const password = req.body?.password;
+  if (typeof password !== "string" || !password) return res.status(400).json({ success: false, message: "Enter your current password to close your account." });
+  try {
+    const user = await User.findOne({ _id: req.user.userId, isActive: true }).select("+password +authTokenVersion");
+    if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ success: false, message: "Your current password is incorrect." });
+    if (user.role !== "customer") return res.status(403).json({ success: false, message: "Staff accounts cannot be closed here." });
+    user.isActive = false;
+    user.authTokenVersion += 1;
+    user.name = "Closed account";
+    user.email = `closed+${user._id}@account.invalid`;
+    user.phone = "";
+    user.avatar = "";
+    user.addresses = [];
+    await user.save();
+    return res.json({ success: true, message: "Your account has been closed." });
+  } catch (error) {
+    console.error("Account closure failed:", error);
+    return res.status(500).json({ success: false, message: "Could not close your account." });
+  }
+};
 
 const addressFieldsToUserShape = (address) => ({
   fullName: address.fullName,

@@ -12,17 +12,26 @@ import {
   addMyAddress,
   updateMyAddress,
   deleteMyAddress,
+  requestEmailChange,
+  confirmEmailChange,
+  deleteMyAccount,
 } from "../controllers/user.controller.js";
 
 import { authorizePermission, requireAuth } from "../middlewares/auth.middleware.js";
 import { PERMISSIONS } from "../config/admin-permissions.js";
 import { getMyNotifications, markMyNotificationRead } from "../controllers/customerNotification.controller.js";
+import { authRateLimit } from "../middlewares/authRateLimit.middleware.js";
+import { exportMyData } from "../controllers/storefront.controller.js";
 
 const router = express.Router();
 
 // Customer profile
 router.get("/me", requireAuth, getMyProfile);
+router.get("/me/export", requireAuth, exportMyData);
 router.patch("/me", requireAuth, updateMyProfile);
+router.post("/me/email-change", requireAuth, authRateLimit({ name: "email-change", limit: 4, windowMs: 60 * 60 * 1000, identityField: "email" }), requestEmailChange);
+router.post("/me/email-change/confirm", requireAuth, authRateLimit({ name: "email-change-confirm", limit: 8, windowMs: 15 * 60 * 1000 }), confirmEmailChange);
+router.delete("/me", requireAuth, authRateLimit({ name: "account-close", limit: 5, windowMs: 15 * 60 * 1000 }), deleteMyAccount);
 router.post("/me/addresses", requireAuth, addMyAddress);
 router.patch("/me/addresses/:addressId", requireAuth, updateMyAddress);
 router.delete("/me/addresses/:addressId", requireAuth, deleteMyAddress);

@@ -2,10 +2,19 @@ import Product from "../models/product.model.js";
 import Category from "../models/category.model.js";
 import isValidObjectId from "../utils/validateObjectId.js";
 import handleError from "../utils/handleError.js";
+import { notifyStockRestock } from "./storefront.controller.js";
 import { uploadImages, deleteCloudinaryImages } from "../utils/cloudinary.upload.js";
 import { isValidNumber } from "../utils/number.utils.js";
 import AdminActivity from "../models/admin-activity.model.js";
 import Vendor from "../models/vendor.model.js";
+
+const parseVariants = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+  const entries = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : null;
+  if (!entries || entries.length > 20 || entries.some((item) => typeof item !== "string" || !item.trim() || item.trim().length > 80)) return null;
+  const normalized = entries.map((item) => item.trim());
+  return [...new Set(normalized)];
+};
 
 const logProductAdminActivity = async (req, action, product) => {
   if (req.user?.role !== "admin") return;
@@ -28,6 +37,7 @@ export const createProduct = async (req, res) => {
       brand,
       stock,
       sku,
+      variants,
     } = req.body;
 
     // 1. Validate required fields
@@ -87,6 +97,8 @@ export const createProduct = async (req, res) => {
         message: "Brand must be a string",
       });
     }
+    const normalizedVariants = parseVariants(variants);
+    if (!normalizedVariants) return res.status(400).json({ success: false, message: "Options must be up to 20 unique comma-separated values, each 80 characters or fewer." });
 
     // 5. Verify that the category exists and is active
     const categoryExists = await Category.exists({
@@ -139,6 +151,7 @@ export const createProduct = async (req, res) => {
           ? 0
           : Number(stock),
       sku: sku.trim(),
+      variants: normalizedVariants,
     });
     await logProductAdminActivity(req, "product_created", product);
 
@@ -174,6 +187,7 @@ export const updateProduct = async (req, res) => {
       stock,
       sku,
       isActive,
+      variants,
     } = req.body;
 
     if (!isValidObjectId(id)) {
@@ -193,12 +207,18 @@ export const updateProduct = async (req, res) => {
       stock,
       sku,
       isActive,
+      variants,
     };
 
     for (const key of Object.keys(updates)) {
       if (updates[key] === undefined) {
         delete updates[key];
       }
+    }
+    if (updates.variants !== undefined) {
+      const normalizedVariants = parseVariants(updates.variants);
+      if (!normalizedVariants) return res.status(400).json({ success: false, message: "Options must be up to 20 unique comma-separated values, each 80 characters or fewer." });
+      updates.variants = normalizedVariants;
     }
 
     const hasNewImages = (req.files?.length ?? 0) > 0;
@@ -385,6 +405,9 @@ export const updateProduct = async (req, res) => {
     }
 
     await logProductAdminActivity(req, "product_updated", product);
+    if (Number(existingProduct.stock) <= 0 && Number(product.stock) > 0) {
+      void notifyStockRestock(product).catch((error) => console.error("Stock alert delivery failed:", error));
+    }
 
     // Delete old Cloudinary images only after the DB update succeeds.
     if (hasNewImages) {

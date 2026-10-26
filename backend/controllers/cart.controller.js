@@ -21,10 +21,12 @@ export const mergeGuestCart = async (req, res) => {
     if (!item || !isValidObjectId(item.productId) || !Number.isSafeInteger(item.quantity) || item.quantity < 1) {
       return res.status(400).json({ success: false, message: "Guest cart contains an invalid item" });
     }
-    if (seen.has(item.productId)) {
+    if (typeof (item.variant || "") !== "string" || (item.variant || "").length > 80) return res.status(400).json({ success: false, message: "Guest cart contains an invalid option" });
+    const itemKey = `${item.productId}:${item.variant || ""}`;
+    if (seen.has(itemKey)) {
       return res.status(400).json({ success: false, message: "Guest cart contains duplicate products" });
     }
-    seen.add(item.productId);
+    seen.add(itemKey);
   }
 
   let session;
@@ -40,9 +42,9 @@ export const mergeGuestCart = async (req, res) => {
         _id: { $in: items.map((item) => item.productId) },
         isActive: true,
         isDeleted: { $ne: true },
-      }).select("name stock").session(session);
+      }).select("name stock variants").session(session);
       const productsById = new Map(products.map((product) => [product._id.toString(), product]));
-      if (productsById.size !== items.length) {
+      if (productsById.size !== new Set(items.map((item) => item.productId)).size) {
         const error = new Error("A product in your guest cart is no longer available.");
         error.status = 409;
         throw error;
@@ -50,21 +52,23 @@ export const mergeGuestCart = async (req, res) => {
 
       for (const item of items) {
         const product = productsById.get(item.productId);
-        const existingItem = cart.items.find((entry) => entry.product.toString() === item.productId);
-        const quantity = (existingItem?.quantity || 0) + item.quantity;
-        if (!Number.isSafeInteger(product.stock) || product.stock < quantity) {
+        const variant = item.variant || "";
+        if ((product.variants?.length && !product.variants.includes(variant)) || (!product.variants?.length && variant)) { const error = new Error(`${product.name} has an option that is no longer available.`); error.status = 409; throw error; }
+        const existingItem = cart.items.find((entry) => entry.product.toString() === item.productId && (entry.variant || "") === variant);
+        const usedStock = cart.items.filter((entry) => entry.product.toString() === item.productId).reduce((sum, entry) => sum + entry.quantity, 0);
+        if (!Number.isSafeInteger(product.stock) || product.stock < usedStock + item.quantity) {
           const error = new Error(`${product.name} does not have enough stock for the combined cart quantity.`);
           error.status = 409;
           throw error;
         }
-        if (existingItem) existingItem.quantity = quantity;
-        else cart.items.push({ product: product._id, quantity: item.quantity });
+        if (existingItem) existingItem.quantity += item.quantity;
+        else cart.items.push({ product: product._id, variant, quantity: item.quantity });
       }
       cart.mergedGuestCartIds.push(guestCartId);
       await cart.save({ session });
     });
 
-    await cart.populate("items.product", "name price images stock");
+    await cart.populate("items.product", "name price images stock variants");
     return res.status(200).json({ success: true, data: cart });
   } catch (error) {
     console.error("Merge guest cart error:", error);
@@ -84,6 +88,7 @@ export const mergeGuestCart = async (req, res) => {
 export const addProductToCart = async (req, res) => {
   try {
     const { productId, quantity = 1 } = req.body;
+    const variant = typeof req.body?.variant === "string" ? req.body.variant.trim() : "";
     const userId = req.user?.userId;
 
     // 1. Validate authenticated user
@@ -119,7 +124,7 @@ export const addProductToCart = async (req, res) => {
       _id: productId,
       isActive: true,
       isDeleted: { $ne: true },
-    }).select("name price images stock");
+    }).select("name price images stock variants");
 
     if (!product) {
       return res.status(404).json({
@@ -127,6 +132,7 @@ export const addProductToCart = async (req, res) => {
         message: "Product not found or unavailable",
       });
     }
+    if ((product.variants?.length && !product.variants.includes(variant)) || (!product.variants?.length && variant)) return res.status(400).json({ success: false, message: "Choose a valid product option." });
 
     // 5. Validate configured stock
     if (!Number.isSafeInteger(product.stock) || product.stock < 0) {
@@ -154,13 +160,10 @@ export const addProductToCart = async (req, res) => {
     }
 
     // 7. Check whether the product already exists in cart
-    const existingItem = cart.items.find(
-      (item) => item.product.toString() === productId,
-    );
+    const existingItem = cart.items.find((item) => item.product.toString() === productId && (item.variant || "") === variant);
 
-    const newQuantity = existingItem
-      ? existingItem.quantity + quantity
-      : quantity;
+    const totalProductQuantity = cart.items.filter((item) => item.product.toString() === productId).reduce((sum, item) => sum + item.quantity, 0);
+    const newQuantity = totalProductQuantity + quantity;
 
     // 8. Check requested total against available stock
     if (newQuantity > product.stock) {
@@ -174,10 +177,11 @@ export const addProductToCart = async (req, res) => {
 
     // 9. Update existing item or add a new item
     if (existingItem) {
-      existingItem.quantity = newQuantity;
+      existingItem.quantity += quantity;
     } else {
       cart.items.push({
         product: product._id,
+        variant,
         quantity,
       });
     }
@@ -186,7 +190,7 @@ export const addProductToCart = async (req, res) => {
     await cart.save();
 
     // 11. Return populated cart
-    await cart.populate("items.product", "name price images stock");
+    await cart.populate("items.product", "name price images stock variants");
 
     return res.status(200).json({
       success: true,
@@ -238,7 +242,7 @@ export const getCart = async (req, res) => {
 
     const cart = await Cart.findOne({ user: userId }).populate(
       "items.product",
-      "name price images stock isActive isDeleted",
+      "name price images stock variants isActive isDeleted",
     );
 
     // Return an empty cart if the user has not added anything
@@ -264,16 +268,18 @@ export const getCart = async (req, res) => {
     // their requested quantity or remove them.
     const items = cart.items.map((item) => {
       const product = item.product;
+      const totalQuantity = cart.items.filter((entry) => entry.product?._id?.toString() === product?._id?.toString()).reduce((sum, entry) => sum + entry.quantity, 0);
 
       return {
         product,
+        variant: item.variant || "",
         quantity: item.quantity,
         available:
           product !== null &&
           product.isActive === true &&
           product.isDeleted !== true &&
           Number.isSafeInteger(product.stock) &&
-          product.stock >= item.quantity,
+          product.stock >= totalQuantity && (!product.variants?.length || product.variants.includes(item.variant || "")),
       };
     });
 
@@ -303,6 +309,7 @@ export const updateCartItemQuantity = async (req, res) => {
     const userId = req.user?.userId;
     const { productId } = req.params;
     const { quantity } = req.body;
+    const variant = typeof req.body?.variant === "string" ? req.body.variant : "";
 
     // 1. Validate user
     if (!userId || !isValidObjectId(userId)) {
@@ -337,7 +344,7 @@ export const updateCartItemQuantity = async (req, res) => {
       _id: productId,
       isActive: true,
       isDeleted: { $ne: true },
-    }).select("stock");
+    }).select("stock variants");
 
     if (!product) {
       return res.status(404).json({
@@ -345,6 +352,7 @@ export const updateCartItemQuantity = async (req, res) => {
         message: "Product not found or unavailable",
       });
     }
+    if ((product.variants?.length && !product.variants.includes(variant)) || (!product.variants?.length && variant)) return res.status(400).json({ success: false, message: "Choose a valid product option." });
 
     // 5. Validate stock configuration
     if (!Number.isSafeInteger(product.stock) || product.stock < 0) {
@@ -355,7 +363,12 @@ export const updateCartItemQuantity = async (req, res) => {
     }
 
     // 6. Check requested quantity against stock
-    if (quantity > product.stock) {
+    const cart = await Cart.findOne({ user: userId });
+    if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
+    const item = cart.items.find((entry) => entry.product.toString() === productId && (entry.variant || "") === variant);
+    if (!item) return res.status(404).json({ success: false, message: "Product option not found in cart" });
+    const otherQuantity = cart.items.filter((entry) => entry.product.toString() === productId && entry !== item).reduce((sum, entry) => sum + entry.quantity, 0);
+    if (otherQuantity + quantity > product.stock) {
       return res.status(409).json({
         success: false,
         message: "Requested quantity exceeds available stock",
@@ -364,34 +377,13 @@ export const updateCartItemQuantity = async (req, res) => {
     }
 
     // 7. Find the logged-in user's cart
-    const cart = await Cart.findOne({ user: userId });
-
-    if (!cart) {
-      return res.status(404).json({
-        success: false,
-        message: "Cart not found",
-      });
-    }
-
-    // 8. Find the requested item
-    const item = cart.items.find(
-      (item) => item.product.toString() === productId,
-    );
-
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found in cart",
-      });
-    }
-
-    // 9. Update quantity
+    // Update the selected cart option.
     item.quantity = quantity;
 
     await cart.save();
 
     // 10. Populate product details
-    await cart.populate("items.product", "name price images stock isActive");
+    await cart.populate("items.product", "name price images stock variants isActive");
 
     return res.status(200).json({
       success: true,
@@ -427,6 +419,7 @@ export const removeCartItem = async (req, res) => {
   try {
     const userId = req.user?.userId;
     const { productId } = req.params;
+    const variant = typeof req.query?.variant === "string" ? req.query.variant : "";
 
     // 1. Validate user
     if (!userId || !isValidObjectId(userId)) {
@@ -455,9 +448,7 @@ export const removeCartItem = async (req, res) => {
     }
 
     // 4. Find the item
-    const itemIndex = cart.items.findIndex(
-      (item) => item.product.toString() === productId,
-    );
+    const itemIndex = cart.items.findIndex((item) => item.product.toString() === productId && (item.variant || "") === variant);
 
     if (itemIndex === -1) {
       return res.status(404).json({

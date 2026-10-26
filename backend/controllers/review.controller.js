@@ -56,6 +56,34 @@ export const getProductReviews = async (req, res) => {
   }
 };
 
+export const getMyProductReview = async (req, res) => {
+  const { productId } = req.params;
+  if (!isValidObjectId(productId)) return res.status(400).json({ success: false, message: "Invalid product ID" });
+  try {
+    const review = await Review.findOne({ product: productId, user: req.user.userId }).lean();
+    return res.json({ success: true, data: review });
+  } catch (error) {
+    console.error("Get customer review failed:", error);
+    return res.status(500).json({ success: false, message: "Could not load your review" });
+  }
+};
+
+export const updateReview = async (req, res) => {
+  const { reviewId } = req.params;
+  const { rating, title, comment } = req.body ?? {};
+  if (!isValidObjectId(reviewId)) return res.status(400).json({ success: false, message: "Invalid review ID" });
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5 || typeof comment !== "string" || !comment.trim() || comment.trim().length > 2000 || (title !== undefined && (typeof title !== "string" || title.trim().length > 100))) return res.status(400).json({ success: false, message: "Rating, title, or comment is invalid" });
+  try {
+    const review = await Review.findOneAndUpdate({ _id: reviewId, user: req.user.userId }, { $set: { rating, title: title?.trim() || "", comment: comment.trim() } }, { new: true, runValidators: true });
+    if (!review) return res.status(404).json({ success: false, message: "Review not found" });
+    await refreshProductRating(review.product);
+    return res.json({ success: true, data: review, message: "Review updated" });
+  } catch (error) {
+    console.error("Update review failed:", error);
+    return res.status(500).json({ success: false, message: "Failed to update review" });
+  }
+};
+
 export const createReview = async (req, res) => {
   const { productId } = req.params;
   const userId = req.user.userId;

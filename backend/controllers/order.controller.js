@@ -7,6 +7,39 @@ import { createHttpError, sendError } from "../utils/order.utils.js";
 import { getUserId } from "../utils/auth.utils.js";
 import { notifyCustomerOrder } from "../services/customerNotificationService.js";
 import { calculatePartialReturn } from "../utils/return.utils.js";
+import User from "../models/user.model.js";
+
+export const lookupOrderByNumber = async (req, res) => {
+  const orderNumber = typeof req.body?.orderNumber === "string" ? req.body.orderNumber.trim().toUpperCase() : "";
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  if (!/^ORD-[A-Z0-9-]{10,80}$/.test(orderNumber) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ success: false, message: "Enter a valid order number and email address." });
+  }
+  try {
+    const user = await User.findOne({ email, isActive: true }).select("_id").lean();
+    const order = user ? await Order.findOne({ orderNumber, user: user._id }).select("orderNumber orderStatus paymentStatus paymentMethod items subtotal shippingFee discount totalAmount currency placedAt updatedAt vendorOrders.fulfillmentStatus vendorOrders.storeName vendorOrders.trackingNumber vendorOrders.trackingUrl").lean() : null;
+    if (!order) return res.status(404).json({ success: false, message: "We couldn’t find an order with those details." });
+    const safeOrder = {
+      orderNumber: order.orderNumber,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      items: (order.items || []).map(({ name, variant, price, quantity, image }) => ({ name, variant: variant || "", price, quantity, image })),
+      subtotal: order.subtotal,
+      shippingFee: order.shippingFee,
+      discount: order.discount,
+      totalAmount: order.totalAmount,
+      currency: order.currency,
+      placedAt: order.placedAt,
+      updatedAt: order.updatedAt,
+      vendorOrders: (order.vendorOrders || []).map(({ fulfillmentStatus, storeName, trackingNumber, trackingUrl }) => ({ fulfillmentStatus, storeName, trackingNumber, trackingUrl })),
+    };
+    return res.json({ success: true, data: safeOrder });
+  } catch (error) {
+    console.error("Guest order lookup failed:", error);
+    return res.status(500).json({ success: false, message: "Order lookup is unavailable. Please try again." });
+  }
+};
 
 // GET /api/orders
 export const getMyOrders = async (req, res) => {
@@ -172,7 +205,7 @@ export const createReturnRequest = async (req, res) => {
           && existing.returnRequest.details === details
           && requestedItems.length === (existing.returnRequest.items || []).length
           && requestedItems.every((item) => existing.returnRequest.items.some((saved) =>
-            String(saved.product) === item.productId && saved.quantity === item.quantity,
+            String(saved.product) === item.productId && (saved.variant || "") === (item.variant || "") && saved.quantity === item.quantity,
           ))
         ) {
           requestOrder = existing;

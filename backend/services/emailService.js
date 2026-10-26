@@ -96,3 +96,14 @@ export const sendForgotPasswordEmail = async (email, name, otp) => {
     textContent: `Hi ${safeName}, ${message} ${otp}. This code will expire in 10 minutes.`,
   });
 };
+
+export const sendEmailChangeCode = async (email, name, otp) => {
+  const safeName = name?.trim() || "User";
+  const message = "Use this code to confirm your new email address:";
+  return sendEmail({
+    to: [{ email: email.trim(), name: safeName }],
+    subject: "Confirm your new email address - E-Commerce",
+    htmlContent: otpTemplate("Confirm your email", safeName, otp, message),
+    textContent: `Hi ${safeName}, ${message} ${otp}. This code will expire in 10 minutes.`,
+  });
+};

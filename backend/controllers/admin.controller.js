@@ -17,6 +17,7 @@ import { uploadImage, deleteCloudinaryImages } from "../utils/cloudinary.upload.
 import { readProductImageArchive } from "../utils/productImportArchive.js";
 import { hasPermission, PERMISSIONS } from "../config/admin-permissions.js";
 import { moneyToPaise } from "../utils/order.utils.js";
+import { notifyStockRestock } from "./storefront.controller.js";
 
 const logAdminActivity = async (req, action, entityType, entityId, summary, metadata = {}) => {
   try {
@@ -472,6 +473,7 @@ export const adjustAdminInventory = async (req, res) => {
   try {
     const filter = { _id: productId, isDeleted: { $ne: true } };
     if (adjustment < 0) filter.stock = { $gte: Math.abs(adjustment) };
+    const before = await Product.findById(productId).select("stock").lean();
     const product = await Product.findOneAndUpdate(filter, {
       $inc: { stock: adjustment },
       ...(lowStockThreshold !== undefined && { $set: { lowStockThreshold } }),
@@ -481,6 +483,7 @@ export const adjustAdminInventory = async (req, res) => {
       return res.status(exists ? 409 : 404).json({ success: false, message: exists ? "Adjustment would make stock negative" : "Product not found" });
     }
     await logAdminActivity(req, "inventory_adjusted", "product", productId, `Inventory updated for ${product.name}`, { adjustment, stock: product.stock, lowStockThreshold: product.lowStockThreshold });
+    if (Number(before?.stock) <= 0 && product.stock > 0) void notifyStockRestock(product).catch((error) => console.error("Stock alert delivery failed:", error));
     return res.json({ success: true, message: "Inventory updated", data: product });
   } catch (error) {
     console.error("Adjust admin inventory error:", error);

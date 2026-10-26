@@ -19,6 +19,7 @@ import wishlistRoutes from "./routes/wishlist.routes.js";
 import couponRoutes from "./routes/coupon.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import vendorRoutes from "./routes/vendor.routes.js";
+import storefrontRoutes from "./routes/storefront.routes.js";
 import { recordVisitor } from "./controllers/visitor.controller.js";
 
 import { connectDB } from "./config/db.js";
@@ -26,6 +27,7 @@ import { releaseExpiredOrderReservations } from "./jobs/releaseExpiredOrderReser
 import { reconcilePendingRefunds } from "./jobs/reconcilePendingRefunds.js";
 import { retryCloudinaryCleanup } from "./jobs/retryCloudinaryCleanup.js";
 import { retryCustomerNotificationEmails } from "./services/customerNotificationService.js";
+import { retryPendingStockAlerts } from "./controllers/storefront.controller.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -81,6 +83,7 @@ app.use("/api/coupons", couponRoutes);
 app.post("/api/analytics/visit", express.json(), recordVisitor);
 app.use("/api/admin", adminRoutes);
 app.use("/api/vendors", vendorRoutes);
+app.use("/api/storefront", storefrontRoutes);
 
 // Test route
 app.get("/", (req, res) => {
@@ -120,6 +123,15 @@ async function startServer() {
         console.log("Expired reservation job:", result);
       } catch (error) {
         console.error("Expired reservation job failed:", error);
+      }
+    });
+
+    cron.schedule("*/5 * * * *", async () => {
+      try {
+        const result = await retryPendingStockAlerts();
+        if (result.sent) console.log("Back-in-stock emails sent:", result);
+      } catch (error) {
+        console.error("Back-in-stock alert retry failed:", error);
       }
     });
 

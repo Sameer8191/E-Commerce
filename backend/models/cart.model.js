@@ -17,6 +17,7 @@ const cartSchema = new mongoose.Schema(
           ref: "Product",
           required: true,
         },
+        variant: { type: String, trim: true, maxlength: 80, default: "" },
 
         quantity: {
           type: Number,
@@ -40,7 +41,7 @@ const cartSchema = new mongoose.Schema(
 
 cartSchema.path("items").validate(
   (items) => {
-    const ids = items.map((item) => item.product?.toString());
+    const ids = items.map((item) => `${item.product?.toString()}:${item.variant || ""}`);
     return ids.length === new Set(ids).size;
   },
   "A product can appear only once in the cart"

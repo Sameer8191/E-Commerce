@@ -81,6 +81,7 @@ const productSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    variants: { type: [{ type: String, trim: true, maxlength: 80 }], default: [] },
 
     stock: {
       type: Number,

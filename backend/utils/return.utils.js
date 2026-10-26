@@ -5,7 +5,8 @@ export const calculatePartialReturn = (order, requestedItems) => {
     throw createHttpError(400, "Select 1–50 items to return");
   }
 
-  const orderLines = new Map((order.items || []).map((item) => [String(item.product), item]));
+  const returnKey = (item) => `${String(item.product ?? item.productId)}:${item.variant || ""}`;
+  const orderLines = new Map((order.items || []).map((item) => [returnKey(item), item]));
   const requestedProductIds = new Set();
   const returnItems = [];
   let orderSubtotalPaise = 0;
@@ -20,15 +21,16 @@ export const calculatePartialReturn = (order, requestedItems) => {
   }
 
   for (const requested of requestedItems) {
-    if (!requested || typeof requested.productId !== "string" || !Number.isSafeInteger(requested.quantity) || requested.quantity < 1) {
+    if (!requested || typeof requested.productId !== "string" || (requested.variant !== undefined && typeof requested.variant !== "string") || !Number.isSafeInteger(requested.quantity) || requested.quantity < 1) {
       throw createHttpError(400, "Return items must include a valid product and positive quantity");
     }
-    if (requestedProductIds.has(requested.productId)) {
+    const key = `${requested.productId}:${requested.variant || ""}`;
+    if (requestedProductIds.has(key)) {
       throw createHttpError(400, "A product can only appear once in a return request");
     }
-    requestedProductIds.add(requested.productId);
+    requestedProductIds.add(key);
 
-    const orderLine = orderLines.get(requested.productId);
+    const orderLine = orderLines.get(key);
     if (!orderLine || requested.quantity > orderLine.quantity) {
       throw createHttpError(400, "Return quantity exceeds the quantity in this order");
     }
@@ -41,6 +43,7 @@ export const calculatePartialReturn = (order, requestedItems) => {
     returnItems.push({
       product: orderLine.product,
       name: orderLine.name,
+      variant: orderLine.variant || "",
       price: unitPricePaise / 100,
       quantity: requested.quantity,
     });
