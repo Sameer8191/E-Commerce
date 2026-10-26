@@ -201,7 +201,7 @@ export const login = async (req, res) => {
     // Find user and explicitly select password
     const user = await User.findOne({
       email: normalizedEmail,
-    }).select("+password");
+    }).select("+password +authTokenVersion");
     // Use the same response for incorrect email or password
     if (
       !user ||
@@ -239,7 +239,7 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = createToken(user._id.toString());
+    const token = createToken(user._id.toString(), user.authTokenVersion);
 
     return res.status(200).json({
       success: true,
@@ -426,6 +426,7 @@ export const resetPassword = async (req, res) => {
       },
       {
         $set: { password: hashedPassword },
+        $inc: { authTokenVersion: 1 },
         $unset: { resetPasswordOTP: 1, resetPasswordOTPExpires: 1 },
       },
       { new: true, runValidators: true },

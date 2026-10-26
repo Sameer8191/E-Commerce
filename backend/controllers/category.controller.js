@@ -59,8 +59,8 @@ export const getCategories = async (req, res) => {
     const parsedLimit = Number(req.query.limit ?? 20);
 
     if (
-      !Number.isInteger(parsedPage) ||
-      !Number.isInteger(parsedLimit) ||
+      !Number.isSafeInteger(parsedPage) ||
+      !Number.isSafeInteger(parsedLimit) ||
       parsedPage < 1 ||
       parsedLimit < 1
     ) {
@@ -73,6 +73,12 @@ export const getCategories = async (req, res) => {
     const page = parsedPage;
     const limit = Math.min(parsedLimit, 100);
     const skip = (page - 1) * limit;
+    if (!Number.isSafeInteger(skip)) {
+      return res.status(400).json({
+        success: false,
+        message: "Page and limit must be safe integers",
+      });
+    }
 
     const [categories, total] = await Promise.all([
       Category.find({ isActive: true })

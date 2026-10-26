@@ -2,17 +2,19 @@ import Product from "../models/product.model.js";
 import Category from "../models/category.model.js";
 import isValidObjectId from "../utils/validateObjectId.js";
 import handleError from "../utils/handleError.js";
-import {
-  uploadImages,
-  deleteCloudinaryImages,
-} from "../utils/cloudinary.upload.js";
+import { uploadImages, deleteCloudinaryImages } from "../utils/cloudinary.upload.js";
+import { isValidNumber } from "../utils/number.utils.js";
+import AdminActivity from "../models/admin-activity.model.js";
+import Vendor from "../models/vendor.model.js";
 
-// Helper to prevent Number(""), Number("  "), Number(null), or Number(false) from evaluating to 0
-const isValidNumber = (val) =>
-  (typeof val === "number" || (typeof val === "string" && val.trim() !== "")) &&
-  Number.isFinite(Number(val));
-
-
+const logProductAdminActivity = async (req, action, product) => {
+  if (req.user?.role !== "admin") return;
+  try {
+    await AdminActivity.create({ actor: req.user.userId, action, entityType: "product", entityId: String(product._id), summary: `${product.name} ${action.replace("product_", "")}` });
+  } catch (error) {
+    console.error("Product activity log failed:", error);
+  }
+};
 export const createProduct = async (req, res) => {
   let uploadedImages = [];
 
@@ -99,11 +101,27 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one product image is required",
+      });
+    }
+
     // 6. Upload images to Cloudinary
-    uploadedImages = await uploadImages(req.files ?? []);
+    uploadedImages = await uploadImages(req.files);
 
     // 7. Create the product in MongoDB
+    const vendor = req.vendor || await Vendor.findOne({ isPlatform: true, status: "approved" }).select("_id");
+    if (!vendor) {
+      return res.status(409).json({
+        success: false,
+        message: "Set up the platform store and migrate existing products before adding products.",
+      });
+    }
+
     const product = await Product.create({
+      vendor: vendor._id,
       name: name.trim(),
       description: description.trim(),
       price: Number(price),
@@ -122,10 +140,12 @@ export const createProduct = async (req, res) => {
           : Number(stock),
       sku: sku.trim(),
     });
+    await logProductAdminActivity(req, "product_created", product);
 
     return res.status(201).json({
       success: true,
       message: "Product created successfully",
+      productId: product._id,
       data: product,
     });
   } catch (error) {
@@ -137,174 +157,6 @@ export const createProduct = async (req, res) => {
 };
 
 
-// GET ALL PRODUCTS
-export const getProducts = async (req, res) => {
-  try {
-    const {
-      search,
-      category,
-      minPrice,
-      maxPrice,
-      page = 1,
-      limit = 12,
-      sort = "newest",
-    } = req.query;
-
-    const pageNumber = Number(page);
-    const limitNumber = Number(limit);
-
-    if (
-      !isValidNumber(page) ||
-      !isValidNumber(limit) ||
-      !Number.isInteger(pageNumber) ||
-      !Number.isInteger(limitNumber) ||
-      pageNumber < 1 ||
-      limitNumber < 1 ||
-      limitNumber > 100
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid page or limit",
-      });
-    }
-
-    const filter = { isActive: true };
-
-    if (search?.trim()) {
-      const escapedSearch = search
-        .trim()
-        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-      filter.name = {
-        $regex: escapedSearch,
-        $options: "i",
-      };
-    }
-
-    if (category && category.trim() !== "") {
-      if (!isValidObjectId(category)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid category ID",
-        });
-      }
-
-      filter.category = category;
-    }
-
-    const hasMinPrice = minPrice !== undefined && minPrice.trim() !== "";
-    const hasMaxPrice = maxPrice !== undefined && maxPrice.trim() !== "";
-
-    if (hasMinPrice || hasMaxPrice) {
-      const priceFilter = {};
-
-      if (hasMinPrice) {
-        if (!isValidNumber(minPrice) || Number(minPrice) < 0) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid minimum price",
-          });
-        }
-        priceFilter.$gte = Number(minPrice);
-      }
-
-      if (hasMaxPrice) {
-        if (!isValidNumber(maxPrice) || Number(maxPrice) < 0) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid maximum price",
-          });
-        }
-        priceFilter.$lte = Number(maxPrice);
-      }
-
-      if (
-        priceFilter.$gte !== undefined &&
-        priceFilter.$lte !== undefined &&
-        priceFilter.$gte > priceFilter.$lte
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Minimum price cannot be greater than maximum price",
-        });
-      }
-
-      filter.price = priceFilter;
-    }
-
-    const sortOptions = {
-      newest: { createdAt: -1 },
-      price_asc: { price: 1 },
-      price_desc: { price: -1 },
-      name_asc: { name: 1 },
-    };
-
-    if (!sortOptions[sort]) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid sort option",
-      });
-    }
-
-    const skip = (pageNumber - 1) * limitNumber;
-
-    const [products, total] = await Promise.all([
-      Product.find(filter)
-        .populate("category", "name slug")
-        .sort(sortOptions[sort])
-        .skip(skip)
-        .limit(limitNumber)
-        .lean(),
-      Product.countDocuments(filter),
-    ]);
-
-    return res.status(200).json({
-      success: true,
-      count: products.length,
-      total,
-      page: pageNumber,
-      totalPages: Math.ceil(total / limitNumber),
-      data: products,
-    });
-  } catch (error) {
-    return handleError(res, error, "Failed to fetch products");
-  }
-};
-
-// GET SINGLE PRODUCT
-export const getProductById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid product ID",
-      });
-    }
-
-    const product = await Product.findOne({
-      _id: id,
-      isActive: true,
-    })
-      .populate("category", "name slug")
-      .lean();
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: product,
-    });
-  } catch (error) {
-    return handleError(res, error, "Failed to fetch product");
-  }
-};
 // UPDATE PRODUCT
 export const updateProduct = async (req, res) => {
   let newlyUploadedImages = [];
@@ -466,12 +318,30 @@ export const updateProduct = async (req, res) => {
     if (updates.isActive === "false") updates.isActive = false;
 
     // Load existing images before replacing them.
-    const existingProduct = await Product.findById(id).select("images").lean();
+    const productScope = req.vendor ? { vendor: req.vendor._id } : {};
+    const existingProduct = await Product.findOne({ _id: id, isDeleted: false, ...productScope }).select("images price compareAtPrice").lean();
 
     if (!existingProduct) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
+      });
+    }
+
+    const effectivePrice =
+      updates.price === undefined ? existingProduct.price : updates.price;
+    const effectiveCompareAtPrice =
+      updates.compareAtPrice === undefined
+        ? existingProduct.compareAtPrice
+        : updates.compareAtPrice;
+    if (
+      effectiveCompareAtPrice !== null &&
+      effectiveCompareAtPrice !== undefined &&
+      effectiveCompareAtPrice < effectivePrice
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Compare-at price must be greater than or equal to price",
       });
     }
 
@@ -482,10 +352,19 @@ export const updateProduct = async (req, res) => {
     }
 
     // Update MongoDB.
-    const product = await Product.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    })
+    const updateFilter = { _id: id, isDeleted: false, ...productScope };
+    const updatesPriceFields =
+      updates.price !== undefined || updates.compareAtPrice !== undefined;
+    if (updatesPriceFields) {
+      updateFilter.price = existingProduct.price;
+      updateFilter.compareAtPrice = existingProduct.compareAtPrice ?? null;
+    }
+
+    const product = await Product.findOneAndUpdate(
+      updateFilter,
+      updates,
+      { new: true, runValidators: true },
+    )
       .populate("category", "name slug")
       .lean();
 
@@ -493,17 +372,39 @@ export const updateProduct = async (req, res) => {
       await deleteCloudinaryImages(newlyUploadedImages);
       newlyUploadedImages = [];
 
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
+      if (
+        updatesPriceFields &&
+        (await Product.exists({ _id: id, isDeleted: false, ...productScope }))
+      ) {
+        return res.status(409).json({
+          success: false,
+          message: "Product price changed during update; please retry",
+        });
+      }
+      return res.status(404).json({ success: false, message: "Product not found" });
     }
+
+    await logProductAdminActivity(req, "product_updated", product);
 
     // Delete old Cloudinary images only after the DB update succeeds.
     if (hasNewImages) {
-      await deleteCloudinaryImages(existingProduct.images ?? []);
-
+      const cleanup = await deleteCloudinaryImages(existingProduct.images ?? []);
       newlyUploadedImages = [];
+      if (cleanup.queued.length || cleanup.unqueued.length) {
+        return res.status(200).json({
+          success: true,
+          message: "Product updated successfully",
+          data: product,
+          ...(cleanup.queued.length > 0 && {
+            cleanupPending: true,
+            cleanupMessage: "Old images are queued for background cleanup",
+          }),
+          ...(cleanup.unqueued.length > 0 && {
+            cleanupQueueFailed: true,
+            cleanupWarning: "Some old images could not be queued for cleanup and may need manual removal",
+          }),
+        });
+      }
     }
 
     return res.status(200).json({
@@ -537,6 +438,7 @@ export const deleteProduct = async (req, res) => {
       {
         _id: id,
         isDeleted: false,
+        ...(req.vendor && { vendor: req.vendor._id }),
       },
       {
         $set: {
@@ -557,6 +459,8 @@ export const deleteProduct = async (req, res) => {
         message: "Product not found or already deleted",
       });
     }
+
+    await logProductAdminActivity(req, "product_deleted", product);
 
     return res.status(200).json({
       success: true,
