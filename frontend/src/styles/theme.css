@@ -1,0 +1,692 @@
+:root {
+  --theme-ink: #193735;
+  --theme-muted: #60736c;
+  --theme-plum: #123f3c;
+  --theme-violet: #176c68;
+  --theme-violet-dark: #0e504c;
+  --theme-coral: #bde96e;
+  --theme-paper: #f7fbf8;
+  --theme-pale: #e8f5ef;
+  --theme-line: #d8e9e1;
+  --theme-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root,
+.app-theme {
+  min-height: 100%;
+  font-family: var(--theme-font);
+}
+
+body {
+  background: var(--theme-paper);
+  color: var(--theme-ink);
+}
+
+.market-header {
+  background: var(--theme-plum);
+}
+
+.market-header .wordmark span,
+.bag-link span,
+.footer-backtop span,
+.footer-brand-column > .wordmark span,
+.footer-bottom > .wordmark span,
+.footer-help-icon,
+.footer-trust-row > div > span {
+  color: var(--theme-coral);
+}
+
+.market-header .wordmark span {
+  color: var(--theme-coral);
+}
+
+.header-search button,
+.footer-help-icon {
+  background: var(--theme-violet);
+}
+
+.header-search button {
+  color: white;
+}
+
+.bag-link span {
+  background: var(--theme-coral);
+  color: white;
+}
+
+.desktop-nav {
+  background: var(--theme-paper);
+  color: var(--theme-muted);
+}
+
+.desktop-nav a:first-child,
+.desktop-nav a:hover {
+  color: var(--theme-violet);
+}
+
+.market-footer {
+  background: #123f3c !important;
+}
+
+.footer-backtop {
+  background: #1d514b !important;
+}
+
+.footer-help-icon {
+  color: white;
+}
+
+.footer-trust-row > div > span,
+.footer-backtop span {
+  color: #bde96e !important;
+}
+
+.footer-brand-column > .wordmark span,
+.footer-bottom > .wordmark span {
+  color: #bde96e !important;
+}
+
+.footer-help-icon {
+  background: #bde96e !important;
+  color: #193735 !important;
+}
+
+.mobile-menu {
+  background: var(--theme-paper);
+}
+
+.g-about {
+  --about-ink: var(--theme-ink);
+  --about-muted: var(--theme-muted);
+  --about-teal: var(--theme-violet);
+  --about-accent: var(--theme-coral);
+  --about-pale: var(--theme-pale);
+  background: var(--theme-paper);
+  color: var(--theme-ink);
+}
+
+.app-theme .g-about {
+  --about-ink: var(--theme-ink);
+  --about-muted: var(--theme-muted);
+  --about-teal: var(--theme-violet);
+  --about-accent: var(--theme-coral);
+  --about-pale: var(--theme-pale);
+  background: var(--theme-paper);
+  color: var(--theme-ink);
+}
+
+.app-theme .g-about .market-header {
+  background: var(--theme-plum);
+}
+
+.app-theme .g-about .market-header .wordmark span {
+  color: var(--theme-coral);
+}
+
+.app-theme .g-about .desktop-nav {
+  border-color: var(--theme-line);
+  background: var(--theme-paper);
+}
+
+.app-theme .g-about .desktop-nav a:first-child,
+.app-theme .g-about .desktop-nav a:hover,
+.app-theme .g-about .about-eyebrow,
+.app-theme .g-about .about-hero h1 em,
+.app-theme .g-about .about-intro h2 em,
+.app-theme .g-about .about-value-icon,
+.app-theme .g-about .about-sourcing-mark,
+.app-theme .g-about .about-seller-link {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme .g-about .about-hero-copy .about-eyebrow > span,
+.app-theme .g-about .about-image-stamp {
+  background: var(--theme-coral);
+}
+
+.app-theme .g-about .about-button {
+  background: var(--theme-violet);
+  color: white;
+}
+
+.app-theme .g-about .about-button:hover {
+  background: var(--theme-violet-dark);
+}
+
+.app-theme .g-about .market-footer {
+  background: #123f3c !important;
+}
+
+.app-theme .g-about .footer-backtop {
+  background: #1d514b !important;
+}
+
+.app-theme .g-about .footer-brand-column > .wordmark span,
+.app-theme .g-about .footer-bottom > .wordmark span,
+.app-theme .g-about .footer-backtop span,
+.app-theme .g-about .footer-trust-row > div > span {
+  color: #bde96e !important;
+}
+
+.app-theme .g-about .footer-help-icon {
+  background: #bde96e !important;
+  color: #193735 !important;
+}
+
+.g-products-page {
+  --catalog-ink: var(--theme-ink);
+  --catalog-muted: var(--theme-muted);
+  --catalog-accent: var(--theme-violet);
+  --catalog-coral: var(--theme-coral);
+  --catalog-paper: var(--theme-paper);
+  --catalog-line: var(--theme-line);
+  background: var(--theme-paper);
+  color: var(--theme-ink);
+}
+
+.app-theme .g-home.g-products-page .market-header {
+  background: var(--theme-plum) !important;
+}
+
+.app-theme .g-home.g-products-page .market-footer {
+  background: #123f3c !important;
+}
+
+.app-theme .g-home.g-products-page .market-header .wordmark span,
+.app-theme .g-home.g-products-page .header-search button,
+.app-theme .g-home.g-products-page .bag-link span {
+  background-color: var(--theme-violet) !important;
+  color: white !important;
+}
+
+.app-theme .g-home.g-products-page .market-header .wordmark span {
+  background: none !important;
+  color: var(--theme-coral) !important;
+}
+
+.app-theme .g-home.g-products-page .desktop-nav {
+  background: var(--theme-paper) !important;
+  border-color: var(--theme-line) !important;
+}
+
+.app-theme .g-home.g-products-page .desktop-nav a:first-child,
+.app-theme .g-home.g-products-page .desktop-nav a:hover {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme .g-home.g-products-page .footer-backtop {
+  background: #1d514b !important;
+}
+
+.g-products-page .footer-brand-column > .wordmark span,
+.g-products-page .footer-bottom > .wordmark span,
+.g-products-page .footer-help-icon,
+.g-products-page .footer-backtop span,
+.g-products-page .footer-trust-row > div > span {
+  color: var(--theme-coral);
+}
+
+.app-theme .g-catalog-intro {
+  background: linear-gradient(115deg, #e2f1e9, #fff9e7) !important;
+}
+
+.app-theme .g-catalog-eyebrow,
+.app-theme .g-catalog-breadcrumb a:hover,
+.app-theme .g-catalog-intro h1 em {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme .g-catalog-intro .g-catalog-eyebrow > span {
+  background: var(--theme-coral) !important;
+}
+
+.app-theme .g-catalog-intro h1,
+.app-theme .g-catalog-intro-copy > a {
+  color: var(--theme-ink) !important;
+}
+
+.app-theme .g-catalog-intro-art {
+  background: #d9f0e5 !important;
+}
+
+.app-theme .g-catalog-intro-art::before {
+  background: #bde5d1 !important;
+}
+
+.app-theme .g-catalog-intro-art::after {
+  background: #bde96e !important;
+}
+
+.app-theme .vendor-workspace {
+  --vendor-ink: var(--theme-ink);
+  --vendor-teal: var(--theme-violet);
+  --vendor-mint: var(--theme-pale);
+  --vendor-line: var(--theme-line);
+  background: var(--theme-paper);
+  color: var(--theme-ink);
+}
+
+.app-theme .vendor-workspace .vendor-section-nav a:hover,
+.app-theme .vendor-workspace .vendor-section-nav a:focus-visible,
+.app-theme .vendor-workspace .text-indigo-600,
+.app-theme .vendor-workspace .text-indigo-700 {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme .vendor-workspace .bg-indigo-600 {
+  background-color: var(--theme-violet) !important;
+}
+
+.app-theme .vendor-workspace [class~="hover:bg-indigo-700"]:hover {
+  background-color: var(--theme-violet-dark) !important;
+}
+
+.app-theme .vendor-workspace .vendor-chart-bar,
+.app-theme .vendor-workspace #overview .grid.gap-3 > div::before {
+  background: var(--theme-violet);
+}
+
+.app-theme .vendor-application {
+  background: var(--theme-paper) !important;
+}
+
+.app-theme .vendor-application form button {
+  background: var(--theme-violet);
+}
+
+.app-theme .vendor-application form button:hover {
+  background: var(--theme-violet-dark);
+}
+
+.app-theme .vendor-public-store {
+  background: var(--theme-paper);
+  color: var(--theme-ink);
+}
+
+.app-theme .v-store-hero {
+  border-color: var(--theme-line);
+  background: linear-gradient(110deg, var(--theme-pale), #fff3f0 68%);
+}
+
+.app-theme .v-store-avatar {
+  color: var(--theme-violet);
+}
+
+.app-theme .v-store-eyebrow,
+.app-theme .v-store-back:hover,
+.app-theme .v-store-product-name:hover,
+.app-theme .v-store-state > a,
+.app-theme .v-store-empty > a {
+  color: var(--theme-violet);
+}
+
+.app-theme .v-store-count b {
+  color: var(--theme-violet);
+}
+
+.app-theme .v-store-product-image > span {
+  background: var(--theme-violet);
+}
+
+.g-products-page .g-product-tools,
+.g-products-page .g-catalog-sidebar,
+.g-products-page .g-catalog-card,
+.g-products-page .g-catalog-empty {
+  border-color: var(--theme-line);
+}
+
+.g-products-page .g-catalog-sidebar,
+.g-products-page .g-catalog-card {
+  background: #fff;
+}
+
+.g-products-page .g-catalog-category-list button:hover,
+.g-products-page .g-catalog-category-list button.active,
+.g-products-page .g-catalog-empty button,
+.g-products-page .g-catalog-pagination button:not(:disabled) {
+  border-color: var(--theme-violet);
+  background: var(--theme-violet);
+  color: white;
+}
+
+.g-products-page .g-catalog-sun {
+  background: var(--theme-plum);
+  color: var(--theme-coral);
+}
+
+.g-products-page input[type="checkbox"],
+.g-products-page input[type="radio"],
+.g-products-page input[type="range"],
+.app-theme input[type="checkbox"],
+.app-theme input[type="radio"],
+.app-theme input[type="range"] {
+  accent-color: var(--theme-violet);
+}
+
+.app-theme :is(.text-indigo-600, .text-indigo-700, .text-blue-600, .text-blue-700) {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme :is(.bg-indigo-600, .bg-blue-600) {
+  background-color: var(--theme-violet) !important;
+}
+
+.app-theme :is([class~="hover:bg-indigo-700"]:hover, [class~="hover:bg-blue-700"]:hover) {
+  background-color: var(--theme-violet-dark) !important;
+}
+
+.app-theme :is(.border-indigo-600, .border-blue-600) {
+  border-color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="text-[#2874f0]"],
+.app-theme [class~="hover:text-[#2874f0]"]:hover {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="bg-[#2874f0]"],
+.app-theme [class~="hover:bg-[#2874f0]"]:hover {
+  background-color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="border-[#2874f0]"] {
+  border-color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="bg-[#172337]"] {
+  background-color: var(--theme-plum) !important;
+}
+
+.app-theme [class~="bg-[#f1f3f6]"],
+.app-theme [class~="bg-[#f5f6f8]"],
+.app-theme [class~="bg-[#f7f7f5]"],
+.app-theme [class~="bg-[#f5f6fa]"],
+.app-theme .bg-slate-50 {
+  background-color: var(--theme-paper) !important;
+}
+
+.app-theme :is(.text-slate-900, .text-slate-800, .text-slate-950) {
+  color: var(--theme-ink) !important;
+}
+
+.app-theme :is(.text-slate-700, .text-slate-600, .text-slate-500) {
+  color: var(--theme-muted) !important;
+}
+
+.app-theme :is(.border-slate-100, .border-slate-200) {
+  border-color: var(--theme-line) !important;
+}
+
+.app-theme .storefront:not(.g-home) .market-header {
+  background: var(--theme-paper) !important;
+  box-shadow: 0 1px 0 var(--theme-line);
+}
+
+.app-theme .storefront:not(.g-home) .market-header .wordmark {
+  color: var(--theme-ink) !important;
+}
+
+.app-theme .storefront:not(.g-home) .market-header .wordmark span {
+  color: var(--theme-coral) !important;
+}
+
+.app-theme .storefront:not(.g-home) .market-header .header-account,
+.app-theme .storefront:not(.g-home) .market-header .header-orders {
+  color: #503c62 !important;
+}
+
+.app-theme .storefront:not(.g-home) .header-search {
+  border-radius: 24px;
+  background: #f4edf8 !important;
+}
+
+.app-theme .storefront:not(.g-home) .header-search input {
+  background: transparent !important;
+  color: var(--theme-ink);
+}
+
+.app-theme .storefront:not(.g-home) .header-search button {
+  width: 37px;
+  height: 34px;
+  margin: 3px;
+  border-radius: 50%;
+  background: var(--theme-violet) !important;
+  color: white !important;
+}
+
+.app-theme .storefront:not(.g-home) .bag-link span {
+  background: var(--theme-coral) !important;
+  color: white !important;
+}
+
+.app-theme .storefront:not(.g-home) .desktop-nav {
+  border-top: 1px solid var(--theme-line);
+  background: var(--theme-paper) !important;
+  color: #665772 !important;
+}
+
+.app-theme .storefront:not(.g-home) .desktop-nav a:first-child,
+.app-theme .storefront:not(.g-home) .desktop-nav a:hover {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme .market-footer,
+.app-theme .g-home.g-products-page .market-footer {
+  background: var(--theme-plum) !important;
+}
+
+.app-theme .footer-backtop,
+.app-theme .g-home.g-products-page .footer-backtop {
+  background: #1d514b !important;
+}
+
+.app-theme .footer-backtop span,
+.app-theme .footer-brand-column > .wordmark span,
+.app-theme .footer-bottom > .wordmark span,
+.app-theme .footer-trust-row > div > span {
+  color: #bde96e !important;
+}
+
+.app-theme .footer-help-icon {
+  background: var(--theme-violet) !important;
+  color: var(--theme-ink) !important;
+}
+
+.market-footer .footer-backtop {
+  font-size: 13px;
+}
+
+.market-footer .footer-brand-column > p {
+  font-size: 14px;
+}
+
+.market-footer .footer-help-card b {
+  font-size: 14px;
+}
+
+.market-footer .footer-help-card small {
+  font-size: 12px;
+}
+
+.market-footer .footer-link-column h2 {
+  font-size: 15px;
+}
+
+.market-footer .footer-link-column li a {
+  font-size: 14px;
+}
+
+.market-footer .footer-trust-row b {
+  font-size: 14px;
+}
+
+.market-footer .footer-trust-row small,
+.market-footer .footer-tagline,
+.market-footer .footer-legal,
+.market-footer .footer-bottom > small {
+  font-size: 12px;
+}
+
+.app-theme [class~="text-[#172337]"],
+.app-theme [class~="text-[#202a3a]"] {
+  color: var(--theme-ink) !important;
+}
+
+.app-theme [class~="text-[#2874f0]"],
+.app-theme [class~="hover:text-[#2874f0]"]:hover,
+.app-theme [class~="text-indigo-600"],
+.app-theme [class~="text-indigo-700"],
+.app-theme [class~="text-blue-600"],
+.app-theme [class~="text-blue-700"] {
+  color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="bg-[#172337]"],
+.app-theme [class~="hover:bg-[#172337]"]:hover {
+  background-color: var(--theme-plum) !important;
+}
+
+.app-theme [class~="bg-[#2874f0]"],
+.app-theme [class~="hover:bg-[#2874f0]"]:hover,
+.app-theme [class~="bg-indigo-600"],
+.app-theme [class~="bg-blue-600"] {
+  background-color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="hover:bg-indigo-700"]:hover,
+.app-theme [class~="hover:bg-blue-700"]:hover {
+  background-color: var(--theme-violet-dark) !important;
+}
+
+.app-theme [class~="border-[#2874f0]"],
+.app-theme [class~="border-indigo-600"],
+.app-theme [class~="border-blue-600"] {
+  border-color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="focus:border-[#2874f0]"]:focus,
+.app-theme [class~="focus-within:border-[#2874f0]"]:focus-within {
+  border-color: var(--theme-violet) !important;
+}
+
+.app-theme [class~="bg-blue-50"],
+.app-theme [class~="focus:ring-blue-50"]:focus,
+.app-theme [class~="focus-within:ring-blue-50"]:focus-within {
+  background-color: var(--theme-pale) !important;
+  --tw-ring-color: #176c6855 !important;
+}
+
+.app-theme [class~="text-[#ffe500]"] {
+  color: var(--theme-coral) !important;
+}
+
+.app-theme [class~="bg-[#2874f0]/20"] {
+  background-color: #176c6833 !important;
+}
+
+.app-theme [class~="bg-[#f1f3f6]"],
+.app-theme [class~="bg-[#f5f6f8]"],
+.app-theme [class~="bg-[#f7f7f5]"],
+.app-theme [class~="bg-[#f5f6fa]"],
+.app-theme [class~="bg-slate-50"] {
+  background-color: var(--theme-paper) !important;
+}
+
+.app-theme > main.grid.min-h-screen {
+  background: var(--theme-paper) !important;
+}
+
+.app-theme > main.grid.min-h-screen > section:first-child {
+  background: var(--theme-plum) !important;
+}
+
+.app-theme > main.grid.min-h-screen > section:first-child a span,
+.app-theme > main.grid.min-h-screen > section:first-child h1 span,
+.app-theme > main.grid.min-h-screen > section:first-child svg {
+  color: var(--theme-coral) !important;
+}
+
+.app-theme > main.grid.min-h-screen form button[type="submit"] {
+  background: var(--theme-violet) !important;
+}
+
+.app-theme > main.grid.min-h-screen form button[type="submit"]:hover {
+  background: var(--theme-violet-dark) !important;
+}
+
+.app-theme .vendor-workspace .vendor-section-nav a:hover,
+.app-theme .vendor-workspace .vendor-section-nav a:focus-visible {
+  border-color: var(--theme-violet) !important;
+}
+
+.app-theme .vendor-workspace .vendor-chart-bar {
+  background: linear-gradient(180deg, #a8e7c7, var(--theme-violet)) !important;
+}
+
+.app-theme .vendor-workspace .vendor-analytics-total {
+  background: var(--theme-pale) !important;
+}
+
+.app-theme .vendor-workspace .vendor-analytics-total b,
+.app-theme .vendor-workspace .vendor-analytics-total span {
+  color: var(--theme-ink) !important;
+}
+
+.app-theme .vendor-application form {
+  border-color: var(--theme-line) !important;
+}
+
+.app-theme .vendor-application form button {
+  background: var(--theme-violet) !important;
+}
+
+.app-theme .vendor-application form button:hover {
+  background: var(--theme-violet-dark) !important;
+}
+
+.app-theme .vendor-public-store .v-store-product-image > span {
+  background: var(--theme-violet) !important;
+}
+
+/* Keep pages built with utility classes on the same palette as the homepage. */
+.app-theme :is([class~="text-[#202a3a]"], [class~="text-slate-900"], [class~="text-slate-800"], [class~="text-slate-950"]) {
+  color: var(--theme-ink) !important;
+}
+
+.app-theme :is([class~="text-[#8993a3]"], [class~="text-slate-700"], [class~="text-slate-600"], [class~="text-slate-500"]) {
+  color: var(--theme-muted) !important;
+}
+
+.app-theme :is([class~="bg-white"], [class~="bg-[#fff]"]) {
+  color: var(--theme-ink);
+}
+
+.app-theme :is([class~="bg-slate-900"], [class~="hover:bg-slate-900"]:hover, [class~="bg-slate-800"]) {
+  background-color: var(--theme-plum) !important;
+}
+
+.app-theme :is([class~="hover:bg-slate-700"]:hover, [class~="hover:bg-slate-800"]:hover) {
+  background-color: var(--theme-violet-dark) !important;
+}
+
+.app-theme :is([class~="border-slate-300"], [class~="border-slate-400"]) {
+  border-color: var(--theme-line) !important;
+}
+
+.app-theme :is(button, a, input, select, textarea):focus-visible {
+  outline-color: var(--theme-violet);
+}
+
+.app-theme .vendor-workspace .vendor-section-nav a:hover,
+.app-theme .vendor-workspace .vendor-section-nav a:focus-visible,
+.app-theme .vendor-workspace .vendor-live-dot {
+  border-color: var(--theme-violet) !important;
+  color: var(--theme-violet) !important;
+}
+
+.app-theme .vendor-workspace .vendor-live-dot {
+  background: var(--theme-coral) !important;
+  box-shadow: 0 0 0 3px var(--theme-pale) !important;
+}
