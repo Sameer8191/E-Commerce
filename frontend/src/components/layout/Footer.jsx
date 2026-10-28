@@ -39,7 +39,7 @@ const footerGroups = [
       ['Privacy notice', '/policies/privacy'],
       ['Terms of service', '/policies/terms'],
       ['Seller portal', '/vendor'],
-      ['Admin workspace', '/admin'],
+      ['Admin panel', '/admin'],
       ['Contact', '/contact'],
     ],
   },
