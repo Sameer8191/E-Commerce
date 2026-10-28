@@ -43,6 +43,10 @@ import { createCoupon, getCoupons, setCouponActive } from "../controllers/coupon
 
 const adminRoutes = express.Router();
 
+// The staff console is a frontend route. If someone opens the API namespace
+// root in a browser, send them to the console instead of returning an auth error.
+adminRoutes.get("/", (req, res) => res.redirect(302, "/admin"));
+
 adminRoutes.use(requireAuth);
 adminRoutes.get("/coupons", authorizePermission(PERMISSIONS.COUPONS_MANAGE), getCoupons);
 adminRoutes.post("/coupons", authorizePermission(PERMISSIONS.COUPONS_MANAGE), createCoupon);
