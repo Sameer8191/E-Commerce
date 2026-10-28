@@ -2,8 +2,7 @@ import axios from "axios";
 
 const api = axios.create({
   // Keep API requests on the site's origin so Vercel's /api rewrite can route them.
-  // An explicit VITE_API_URL can still point local development at a separate API.
-  baseURL: import.meta.env.VITE_API_URL || "/api",
+  baseURL: "/api",
   headers: {
     "Content-Type": "application/json",
   },

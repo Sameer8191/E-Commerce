@@ -1,11 +1,12 @@
 import dns from "node:dns/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 import express from "express";
 import cors from "cors";
 import multer from "multer";
 import "dotenv/config";
-import cron from "node-cron";
 
 import authRoutes from "./routes/auth.routes.js";
 import productRoutes from "./routes/product.routes.js";
@@ -60,6 +61,14 @@ app.use(cors({
     return callback(new Error("Origin is not allowed by CORS"));
   },
 }));
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 app.use(express.json({
   limit: "1mb",
   verify: (req, res, buffer) => {
@@ -84,6 +93,36 @@ app.post("/api/analytics/visit", express.json(), recordVisitor);
 app.use("/api/admin", adminRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/storefront", storefrontRoutes);
+
+const cronAuthorized = (req) => {
+  const secret = process.env.CRON_SECRET;
+  return Boolean(secret) && req.get("authorization") === `Bearer ${secret}`;
+};
+
+app.get("/api/cron/minute", async (req, res, next) => {
+  if (!cronAuthorized(req)) return res.status(401).json({ success: false, message: "Unauthorized" });
+  try {
+    const refunds = await reconcilePendingRefunds();
+    return res.json({ success: true, refunds });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get("/api/cron/five-minutes", async (req, res, next) => {
+  if (!cronAuthorized(req)) return res.status(401).json({ success: false, message: "Unauthorized" });
+  try {
+    const [reservations, stockAlerts, customerEmails, cloudinaryCleanup] = await Promise.all([
+      releaseExpiredOrderReservations(),
+      retryPendingStockAlerts(),
+      retryCustomerNotificationEmails(),
+      retryCloudinaryCleanup(),
+    ]);
+    return res.json({ success: true, reservations, stockAlerts, customerEmails, cloudinaryCleanup });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // Test route
 app.get("/", (req, res) => {
@@ -110,67 +149,11 @@ app.use((error, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+export default app;
 
-async function startServer() {
-  try {
-    await connectDB();
-
-    // Release expired Razorpay inventory reservations every 5 minutes.
-    cron.schedule("*/5 * * * *", async () => {
-      try {
-        const result = await releaseExpiredOrderReservations();
-        console.log("Expired reservation job:", result);
-      } catch (error) {
-        console.error("Expired reservation job failed:", error);
-      }
-    });
-
-    cron.schedule("*/5 * * * *", async () => {
-      try {
-        const result = await retryPendingStockAlerts();
-        if (result.sent) console.log("Back-in-stock emails sent:", result);
-      } catch (error) {
-        console.error("Back-in-stock alert retry failed:", error);
-      }
-    });
-
-    cron.schedule("*/5 * * * *", async () => {
-      try {
-        const result = await retryCustomerNotificationEmails();
-        if (result.examined) console.log("Customer email retry job:", result);
-      } catch (error) {
-        console.error("Customer email retry job failed:", error);
-      }
-    });
-
-    // Reconcile persisted refunds after transient Razorpay/API failures.
-    cron.schedule("* * * * *", async () => {
-      try {
-        const result = await reconcilePendingRefunds();
-        if (result.claimed) console.log("Refund reconciliation:", result);
-      } catch (error) {
-        console.error("Refund reconciliation job failed:", error);
-      }
-    });
-
-    // Retry failed Cloudinary image deletions without blocking product updates.
-    cron.schedule("*/5 * * * *", async () => {
-      try {
-        const result = await retryCloudinaryCleanup();
-        if (result.examined) console.log("Cloudinary cleanup retry:", result);
-      } catch (error) {
-        console.error("Cloudinary cleanup retry job failed:", error);
-      }
-    });
-
-    app.listen(PORT, () => {
-      console.log(`Server is running at http://localhost:${PORT}/`);
-    });
-  } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  }
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`Server is running at http://localhost:${PORT}/`);
+  });
 }
-
-startServer();
