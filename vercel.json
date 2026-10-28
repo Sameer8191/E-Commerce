@@ -23,15 +23,5 @@
         "service": "frontend"
       }
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/minute",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/five-minutes",
-      "schedule": "*/5 * * * *"
-    }
   ]
 }

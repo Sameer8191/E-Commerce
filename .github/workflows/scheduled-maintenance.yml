@@ -1,0 +1,40 @@
+name: Store maintenance
+
+on:
+  schedule:
+    # Run off the hour to reduce GitHub's scheduled-workflow queue delays.
+    - cron: "2-59/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: store-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call Vercel maintenance endpoints
+        env:
+          VERCEL_APP_URL: ${{ vars.VERCEL_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          node --input-type=module <<'NODE'
+          const baseUrl = process.env.VERCEL_APP_URL;
+          const secret = process.env.CRON_SECRET;
+          if (!baseUrl || !secret) {
+            throw new Error("Set the VERCEL_APP_URL variable and CRON_SECRET repository secret.");
+          }
+
+          for (const path of ["/api/cron/minute", "/api/cron/five-minutes"]) {
+            const response = await fetch(new URL(path, baseUrl), {
+              headers: { authorization: `Bearer ${secret}` },
+            });
+            const body = await response.text();
+            if (!response.ok) {
+              throw new Error(`${path} returned ${response.status}: ${body}`);
+            }
+            console.log(`${path}: ${body}`);
+          }
+          NODE

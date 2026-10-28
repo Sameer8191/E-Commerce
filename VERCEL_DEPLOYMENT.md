@@ -17,7 +17,14 @@ The frontend calls the same origin at `/api`, so it does not need a public backe
 
 ## Scheduled maintenance
 
-Vercel Cron calls the protected `/api/cron/minute` endpoint every minute for pending refund reconciliation and `/api/cron/five-minutes` every five minutes for inventory reservations, stock alerts, customer email retries, and Cloudinary cleanup. Set `CRON_SECRET` in Vercel. These schedules require a plan that permits per-minute cron jobs.
+Vercel Hobby only supports daily cron schedules. This repository uses a GitHub Actions workflow instead. It calls both protected maintenance endpoints every five minutes; this means pending refunds are reconciled every five minutes rather than every minute.
+
+In GitHub, add:
+
+- A repository **variable** named `VERCEL_APP_URL` with the production deployment origin, such as `https://your-store.vercel.app`.
+- A repository **secret** named `CRON_SECRET` with the same random value configured as `CRON_SECRET` in Vercel.
+
+The workflow sends `Authorization: Bearer <CRON_SECRET>` and fails if either endpoint returns an error. It also supports manual runs with `workflow_dispatch`. GitHub scheduled workflows run from the default branch and can be delayed during periods of high load, so they do not guarantee exact five-minute timing. See [GitHub's schedule event documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
 
 ## Payment webhooks
 
