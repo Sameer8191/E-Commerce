@@ -47,6 +47,7 @@ export default function Navbar({ menuOpen, setMenuOpen, cartCount = 0, query = '
         <Link className="header-icon bag-link" to="/cart" aria-label={`Shopping bag, ${visibleCartCount} items`}><Icon name="bag" /><span>{visibleCartCount}</span></Link>
       </div>
       <nav className="desktop-nav" aria-label="Main navigation"><Link to="/products">☰ &nbsp;All categories</Link><Link to="/products?sort=price_asc">Today's deals</Link><Link to="/products?sort=newest">New arrivals</Link><Link to="/products?search=electronics">Electronics</Link><Link to="/products?search=home">Home & kitchen</Link><Link to="/products?search=fashion">Fashion</Link><Link to="/about">About Goodthings</Link><Link to="/vendor">Sell with us</Link></nav>
+      <Link className="mx-auto mb-3 inline-flex rounded-md bg-[#172337] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#2874f0]" to="/admin">Admin panel</Link>
       {isMenuOpen && <nav className="mobile-menu market-mobile-menu" id="storefront-mobile-menu" aria-label="Mobile navigation">
         <Link to="/products" onClick={() => updateMenu(false)}>Shop all products</Link>
         <Link to="/products?sort=price_asc" onClick={() => updateMenu(false)}>Today’s deals</Link>
@@ -58,6 +59,7 @@ export default function Navbar({ menuOpen, setMenuOpen, cartCount = 0, query = '
         <Link to="/orders" onClick={() => updateMenu(false)}>Your orders</Link>
         <Link to="/wishlist" onClick={() => updateMenu(false)}>Saved items</Link>
         <Link to="/vendor" onClick={() => updateMenu(false)}>Sell with us</Link>
+        <Link to="/admin" onClick={() => updateMenu(false)}>Admin panel</Link>
       </nav>}
     </header>
   )
